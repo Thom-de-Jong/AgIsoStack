@@ -5,6 +5,16 @@ use heapless::FnvIndexMap;
 
 const VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE: usize = 8;
 const VT_BUTTON_EVENT_CALLBACK_LIST_SIZE: usize = 8;
+const VT_POINTING_EVENT_CALLBACK_LIST_SIZE: usize = 8;
+const VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE: usize = 8;
+const VT_ESC_MESSAGE_CALLBACK_LIST_SIZE: usize = 8;
+const VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE: usize = 8;
+const VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE: usize = 8;
+const VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE: usize = 8;
+const VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE: usize = 8;
+const VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE: usize = 8;
+const VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE: usize = 8;
+const AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE: usize = 8;
 
 pub struct VirtualTerminalClient {
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
@@ -12,16 +22,16 @@ pub struct VirtualTerminalClient {
 
 	soft_key_event_callbacks: FnvIndexMap<usize, fn(VTKeyEvent), VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE>,
 	button_event_callbacks: FnvIndexMap<usize, fn(VTKeyEvent), VT_BUTTON_EVENT_CALLBACK_LIST_SIZE>,
-	// EventDispatcher<VTPointingEvent> pointingEventDispatcher; ///< A list of all pointing event callbacks
-	// EventDispatcher<VTSelectInputObjectEvent> selectInputObjectEventDispatcher; ///< A list of all select input object callbacks
-	// EventDispatcher<VTESCMessageEvent> escMessageEventDispatcher; ///< A list of all ESC event callbacks
-	// EventDispatcher<VTChangeNumericValueEvent> changeNumericValueEventDispatcher; ///< A list of all change numeric value callbacks
-	// EventDispatcher<VTChangeActiveMaskEvent> changeActiveMaskEventDispatcher; ///< A list of all change active mask callbacks
-	// EventDispatcher<VTChangeSoftKeyMaskEvent> changeSoftKeyMaskEventDispatcher; ///< A list of all change soft key mask callbacks
-	// EventDispatcher<VTChangeStringValueEvent> changeStringValueEventDispatcher; ///< A list of all change string value callbacks
-	// EventDispatcher<VTUserLayoutHideShowEvent> userLayoutHideShowEventDispatcher; ///< A list of all user layout hide/show callbacks
-	// EventDispatcher<VTAudioSignalTerminationEvent> audioSignalTerminationEventDispatcher; ///< A list of all control audio signal termination callbacks
-	// EventDispatcher<AuxiliaryFunctionEvent> auxiliaryFunctionEventDispatcher; ///< A list of all auxiliary function callbacks
+	pointing_event_callbacks: FnvIndexMap<usize, fn(VTPointingEvent), VT_POINTING_EVENT_CALLBACK_LIST_SIZE>,
+	select_input_object_event_callbacks: FnvIndexMap<usize, fn(VTSelectInputObjectEvent), VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE>,
+	esc_message_event_callbacks: FnvIndexMap<usize, fn(VTESCMessageEvent), VT_ESC_MESSAGE_CALLBACK_LIST_SIZE>,
+	change_numeric_value_event_callbacks: FnvIndexMap<usize, fn(VTChangeNumericValueEvent), VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE>,
+	change_active_mask_event_callbacks: FnvIndexMap<usize, fn(VTChangeActiveMaskEvent), VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE>,
+	change_soft_key_mask_event_callbacks: FnvIndexMap<usize, fn(VTChangeSoftKeyMaskEvent), VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE>,
+	change_string_value_event_callbacks: FnvIndexMap<usize, fn(VTChangeStringValueEvent), VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE>,
+	user_layout_hide_show_event_callbacks: FnvIndexMap<usize, fn(VTUserLayoutHideShowEvent), VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE>,
+	audio_signal_termination_event_callbacks: FnvIndexMap<usize, fn(VTAudioSignalTerminationEvent), VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE>,
+	auxiliary_function_event_callbacks: FnvIndexMap<usize, fn(AuxiliaryFunctionEvent), AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE>,
 }
 
 impl VirtualTerminalClient {
@@ -31,6 +41,16 @@ impl VirtualTerminalClient {
             internal_control_function: client,
 			soft_key_event_callbacks: FnvIndexMap::new(),
 			button_event_callbacks: FnvIndexMap::new(),
+            pointing_event_callbacks: FnvIndexMap::new(),
+            select_input_object_event_callbacks: FnvIndexMap::new(),
+            esc_message_event_callbacks: FnvIndexMap::new(),
+            change_numeric_value_event_callbacks: FnvIndexMap::new(),
+            change_active_mask_event_callbacks: FnvIndexMap::new(),
+            change_soft_key_mask_event_callbacks: FnvIndexMap::new(),
+            change_string_value_event_callbacks: FnvIndexMap::new(),
+            user_layout_hide_show_event_callbacks: FnvIndexMap::new(),
+            audio_signal_termination_event_callbacks: FnvIndexMap::new(),
+            auxiliary_function_event_callbacks: FnvIndexMap::new(),
         }
     }
 
@@ -76,10 +96,10 @@ impl VirtualTerminalClient {
         // self.partnered_control_function.update();
 
 		for (_,callback) in &mut self.soft_key_event_callbacks {
-			callback(VTKeyEvent{ object_Id: 0, parentObjectID: 0, keyNumber: 0 });
+			callback(VTKeyEvent{ object_Id: 0, parent_object_Id: 0, key_number: 0 });
 		}
 		for (_,callback) in &mut self.button_event_callbacks {
-			callback(VTKeyEvent{ object_Id: 0, parentObjectID: 0, keyNumber: 0 });
+			callback(VTKeyEvent{ object_Id: 0, parent_object_Id: 0, key_number: 0 });
 		}
 
         // StateMachineState previousStateMachineState = state; // Save state to see if it changes this update
@@ -502,7 +522,109 @@ impl VirtualTerminalClient {
 pub struct VTKeyEvent {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
 	object_Id: u16, //< The object ID
-	parentObjectID: u16, //< The parent object ID
-	keyNumber: u8, //< The key number
+	parent_object_Id: u16, //< The parent object ID
+	key_number: u8, //< The key number
 	// KeyActivationCode keyEvent; ///< The key event
+}
+
+/// @brief A struct for storing information of a VT pointing event
+#[derive(Debug)]
+struct VTPointingEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	x_pos: u16, //< The x position
+	y_pos: u16, //< The y position
+	parent_object_Id: u16, //< The parent object ID
+	// KeyActivationCode keyEvent; ///< The key event
+}
+
+/// @brief A struct for storing information of a VT input object selection event
+#[derive(Debug)]
+struct VTSelectInputObjectEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t objectID; ///< The object ID
+	// bool objectSelected; ///< Whether the object is selected
+	// bool objectOpenForInput; ///< Whether the object is open for input
+}
+
+/// @brief A struct for storing information of a VT ESC message event
+#[derive(Debug)]
+struct VTESCMessageEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t objectID; ///< The object ID
+	// ESCMessageErrorCode errorCode; ///< The error code
+}
+
+/// @brief A struct for storing information of a VT change numeric value event
+#[derive(Debug)]
+struct VTChangeNumericValueEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint32_t value; ///< The value
+	// std::uint16_t objectID; ///< The object ID
+}
+
+/// @brief A struct for storing information of a VT change active mask event
+#[derive(Debug)]
+struct VTChangeActiveMaskEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t maskObjectID; ///< The mask object ID
+	// std::uint16_t errorObjectID; ///< The error object ID
+	// std::uint16_t parentObjectID; ///< The parent object ID
+	// bool missingObjects; ///< Whether there are missing objects
+	// bool maskOrChildHasErrors; ///< Whether the mask or child has errors
+	// bool anyOtherError; ///< Whether there are any other errors
+	// bool poolDeleted; ///< Whether the pool has been deleted
+}
+
+/// @brief A struct for storing information of a VT change soft key mask event
+#[derive(Debug)]
+struct VTChangeSoftKeyMaskEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t dataOrAlarmMaskObjectID; ///< The data or alarm mask object ID
+	// std::uint16_t softKeyMaskObjectID; ///< The soft key mask object ID
+	// bool missingObjects; ///< Whether there are missing objects
+	// bool maskOrChildHasErrors; ///< Whether the mask or child has errors
+	// bool anyOtherError; ///< Whether there are any other errors
+	// bool poolDeleted; ///< Whether the pool has been deleted
+}
+
+/// @brief A struct for storing information of a VT change string value event
+#[derive(Debug)]
+struct VTChangeStringValueEvent
+{
+// 	std::string value; ///< The value
+// 	VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+// 	std::uint16_t objectID; ///< The object ID
+}
+
+/// @brief A struct for storing information of a VT on user-layout hide/show event
+#[derive(Debug)]
+struct VTUserLayoutHideShowEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t objectID; ///< The object ID
+	// bool isHidden; ///< Whether the object is hidden
+}
+
+/// @brief A struct for storing information of a VT control audio signal termination event
+#[derive(Debug)]
+struct VTAudioSignalTerminationEvent
+{
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// bool isTerminated; ///< Whether the audio signal is terminated
+}
+
+/// @brief A struct for storing information of an auxilary function event
+#[derive(Debug)]
+struct AuxiliaryFunctionEvent
+{
+	// AssignedAuxiliaryFunction function; ///< The function
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	// std::uint16_t value1; ///< The first value
+	// std::uint16_t value2; ///< The second value
 }
