@@ -1,5 +1,6 @@
 
-use super::{ CanFrame, CanDriverTrait, Id, StandardId, ExtendedId };
+use crate::{CanFrame, Id, StandardId, ExtendedId};
+use super::{CanDriverTrait};
 
 use pcan_basic::{ bus::UsbBus, error::PcanError, socket::{usb::UsbCanSocket, MessageType, RecvCan, SendCan} };
 

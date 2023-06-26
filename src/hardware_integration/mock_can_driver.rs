@@ -1,5 +1,6 @@
 
-use super::{ CanFrame, CanDriverTrait };
+use crate::CanFrame;
+use super::CanDriverTrait;
 
 pub struct MockCanDriver {}
 

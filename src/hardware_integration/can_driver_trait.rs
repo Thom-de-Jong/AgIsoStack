@@ -1,5 +1,5 @@
 
-use super::CanFrame;
+use crate::CanFrame;
 
 pub trait CanDriverTrait {
     fn is_valid(&mut self) -> bool;

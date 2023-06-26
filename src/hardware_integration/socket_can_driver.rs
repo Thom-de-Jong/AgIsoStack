@@ -1,5 +1,6 @@
 
-use super::{ CanFrame, CanHardwareTrait };
+use crate::{CanFrame};
+use super::{CanDriverTrait};
 
 use socketcan::{ CANError, CANSocket };
 

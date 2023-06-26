@@ -1,18 +1,18 @@
 
-use crate::name::Name;
+use crate::{Address, name::Name};
 
 /// Lets the network manager know if any ICF changed address since the last update.
 static ANY_CHANGED_ADDRESS: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
 pub struct ExternalControlFunction {
-    address: u8,
+    address: Address,
     can_port: u8,
     name: Name,
     object_changed_address_since_last_update: bool,
 }
 
 impl ExternalControlFunction {
-    pub fn address(&self) -> u8 {
+    pub fn address(&self) -> Address {
         self.address
     }
     

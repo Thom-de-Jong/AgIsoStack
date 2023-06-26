@@ -1,74 +1,76 @@
 
-use crate::name::Name;
+use crate::{Address, name::Name};
+
+use super::AddressClaimStateMachine;
+
+static INTERNAL_CONTROL_FUNCTION_LIST: heapless::Vec<InternalControlFunction, 2> = heapless::Vec::new();
 
 /// Lets the network manager know if any ICF changed address since the last update.
-static ANY_CHANGED_ADDRESS: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static ANY_CHANGED_ADDRESS: bool = false;
 
 pub struct InternalControlFunction {
-    address: u8,
-    can_port: u8,
-    name: Name,
     object_changed_address_since_last_update: bool,
+    state_machine: AddressClaimStateMachine,
 }
 
 impl InternalControlFunction {
-    pub fn address(&self) -> u8 {
-        self.address
+    pub fn address(&self) -> Address {
+        self.state_machine.claimed_address()
     }
     
     pub fn can_port(&self) -> u8 {
-        self.can_port
+        self.state_machine.can_port()
     }
     
     pub fn name(&self) -> Name {
-        self.name
+        self.state_machine.name()
     }
 
 
-    /// @brief Constructor for an internal control function
-	/// @param[in] desiredName The NAME for this control function to claim as
-	/// @param[in] preferredAddress The preferred NAME for this control function
-	/// @param[in] CANPort The CAN channel index for this control function to use
-    pub fn new(desired_name: Name, prefered_address: u8, can_port: u8) -> &InternalControlFunction {
-        let cf = InternalControlFunction {
-            address: todo!(),
-            can_port,
-            name: todo!(),
-            object_changed_address_since_last_update: false,
-        };
-        let val = &cf;
+    // /// @brief Constructor for an internal control function
+	// /// @param[in] desiredName The NAME for this control function to claim as
+	// /// @param[in] preferredAddress The preferred NAME for this control function
+	// /// @param[in] CANPort The CAN channel index for this control function to use
+    // pub fn new(desired_name: Name, prefered_address: u8, can_port: u8) -> InternalControlFunction {
+    //     InternalControlFunction {
+    //         address: todo!(),
+    //         can_port,
+    //         name: todo!(),
+    //         object_changed_address_since_last_update: false,
+    //     }
+    //     // let val = &icf;
 
-		if let Err(_) = INTERNAL_CONTROL_FUNCTION_LIST.push(cf) {
-            // log::error!("Not enough space in the INTERNAL_CONTROL_FUNCTION_LIST. Allocated items; {}", env!("INTERNAL_CONTROL_FUNCTION_LIST_SIZE"))
-        }
+	// 	// if let Err(_) = INTERNAL_CONTROL_FUNCTION_LIST.push(icf) {
+    //     //     // log::error!("Not enough space in the INTERNAL_CONTROL_FUNCTION_LIST. Allocated items; {}", env!("INTERNAL_CONTROL_FUNCTION_LIST_SIZE"))
+    //     // }
 
-        val
-    }
+    //     // ifc
+    // }
 
 	/// @brief Destructor for an internal control function
 	// ~InternalControlFunction();
 
-	/// Returns a an internal control function from the list of all internal control functions.
-	pub fn get(index: u32) -> Option<&InternalControlFunction> {
-        INTERNAL_CONTROL_FUNCTION_LIST.get(index)
-    }
+	// /// Returns a reference to an internal control function from the list of all internal control functions.
+	// pub fn get(index: u32) -> Option<&InternalControlFunction> {
+    //     INTERNAL_CONTROL_FUNCTION_LIST.get(index)
+    // }
 
-	/// Returns a an internal control function from the list of all internal control functions.
-	pub fn get_mut(index: u32) -> Option<&mut InternalControlFunction> {
-        INTERNAL_CONTROL_FUNCTION_LIST.get_mut(index)
-    }
+	// /// Returns a mutable reference to an internal control function from the list of all internal control functions.
+	// pub fn get_mut(index: u32) -> Option<&mut InternalControlFunction> {
+    //     INTERNAL_CONTROL_FUNCTION_LIST.get_mut(index)
+    // }
 
 	/// Returns the number of internal control functions that exist.
-	pub fn number_of_internal_control_functions() -> usize {
-        INTERNAL_CONTROL_FUNCTION_LIST.len()
-    }
+	// pub fn number_of_internal_control_functions() -> usize {
+    //     INTERNAL_CONTROL_FUNCTION_LIST.len()
+    // }
 
 	/// Lets network manager know a control function changed address recently.
 	/// These tell the network manager when the address table needs to be explicitly
 	/// updated for an internal control function claiming a new address.
 	/// Other CF types are handled in Rx message processing.
 	pub fn any_internal_control_function_changed_address() -> bool { // (CANLibBadge<CANNetworkManager>)
-        ANY_CHANGED_ADDRESS
+        ANY_CHANGED_ADDRESS//.load(core::sync::atomic::Ordering::Relaxed)
     }
 
 	/// Used to determine if the internal control function changed address since the last network manager update.
@@ -90,7 +92,7 @@ impl InternalControlFunction {
     }
 
     pub fn update(&mut self) {
-		let previous_address: u8 = self.address;
+		let previous_address = self.address;
         self.object_changed_address_since_last_update = false;
         self.state_machine.update();
 		let address = self.state_machine.get_claimed_address();
