@@ -154,10 +154,9 @@
 // 	return 0;
 // }
 
-use std::{thread, time::Duration, sync::mpsc::*, fs::File};
+use std::{thread, time::Duration, sync::mpsc::{*, self}};
 
-use agisostack::{Address, hardware_integration::*, name::*, control_function::*, CanFrame, VirtualTerminalClient};
-use log::warn;
+use agisostack::{Address, hardware_integration::*, name::*, control_function::*, CanFrame, virtual_terminal_client::*};
 
 fn main() {
     // Setup the logging interface.
@@ -170,14 +169,14 @@ fn main() {
     let (tx, rx): (Sender<CanFrame>, Receiver<CanFrame>) = mpsc::channel();
 
     // Start the canbus thread.
-    thread::spawn(move |rx| canbus_task(rx));
+    thread::spawn(move || canbus_task(tx));
 
     // Start the isobus thread.
-    thread::spawn(move |tx| isobus_task(tx));
+    thread::spawn(move || isobus_task(rx));
 
     // For example; Do all of our GUI in the main thread.
     loop {
-        log::info!("Time: {:?}", agisostack::hardware_integration::TimeDriver::time_elapsed());
+        log::info!("Time: {:?}", TimeDriver::time_elapsed());
         thread::sleep(Duration::from_secs(1));
     }
 }
@@ -194,7 +193,7 @@ fn canbus_task(tx: Sender<CanFrame>) {
         thread::yield_now();
     }
 
-    error!("Canbus task exited! Driver no longer valid.");
+    log::error!("Canbus task exited! Driver no longer valid.");
 }
 
 fn isobus_task(rx: Receiver<CanFrame>) {
@@ -231,7 +230,8 @@ fn isobus_task(rx: Receiver<CanFrame>) {
     let test_device_address = Address(0x1C);
 
     // Read iop file.
-    let test_pool: Vec<u8> = Vec::new().extend(std::fs::read("VT3TestPool.iop"));
+    let mut test_pool = Vec::new();
+    test_pool.extend(std::fs::read("VT3TestPool.iop"));
 
     if test_pool.is_empty() {
         log::error!("Failed to load object pool from VT3TestPool.iop")
@@ -242,14 +242,15 @@ fn isobus_task(rx: Receiver<CanFrame>) {
     let filter_virtual_terminal = NameFilter::FunctionCode(FunctionCode::VirtualTerminal);
     let vt_name_filters = vec![filter_virtual_terminal];
     
-    let test_internal_ecu = ControlFunction::new_internal_control_function(test_device_name, test_device_address, 0);
-    let test_partner_vt = ControlFunction::new_partnered_control_function(0, vt_name_filters);
+    // TODO: Replace .unwrap()
+    let test_internal_ecu = ControlFunction::new_internal_control_function(test_device_name, test_device_address, 0).unwrap();
+    let test_partner_vt = ControlFunction::new_partnered_control_function(0, &vt_name_filters).unwrap();
 
-    let test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
-    test_virtual_terminal_client.set_object_pool(0, VirtualTerminalClient::VTVersion::Version3, test_pool);
-    let soft_key_listner = test_virtual_terminal_client.add_vt_soft_key_event_listener(handle_vt_key_events);
-    let button_listner = test_virtual_terminal_client.add_vt_button_event_listener(handle_vt_key_events);
-    test_virtual_terminal_client.initialize(true);
+    let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
+    // test_virtual_terminal_client.set_object_pool(0, VirtualTerminalClient::VTVersion::Version3, test_pool);
+    let soft_key_listner = test_virtual_terminal_client.add_vt_soft_key_event_listener(|e| handle_vt_key_events(e) );
+    let button_listner = test_virtual_terminal_client.add_vt_button_event_listener(|e| handle_vt_key_events(e) );
+    // test_virtual_terminal_client.initialize(true);
 
     loop {
         // Receive a CanFrame without blocking
@@ -263,9 +264,10 @@ fn isobus_task(rx: Receiver<CanFrame>) {
 }
 
 // This callback will provide us with event driven notifications of button presses from the stack
-fn handle_vt_key_events(event: &VirtualTerminalClient::VTKeyEvent) {
-
+fn handle_vt_key_events(_event: VTKeyEvent) {
+    // println!("Callback a received event! {:?}", event);
 }
+
 // void handleVTKeyEvents(const isobus::VirtualTerminalClient::VTKeyEvent &event)
 // {
 // 	static std::uint32_t exampleNumberOutput = 214748364; // In the object pool the output number has an offset of -214748364 so we use this to represent 0.

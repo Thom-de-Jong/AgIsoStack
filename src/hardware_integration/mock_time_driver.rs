@@ -11,6 +11,7 @@ pub struct MockTimeDriver {}
 
 impl TimeDriverTrait for MockTimeDriver {
     fn time_elapsed() -> Duration {
-        STARTUP_TIME.saturating_add(Duration::from_millis(20))
+        // STARTUP_TIME.add_assign(Duration::from_millis(20))
+        Duration::from_millis(20)
     }
 }

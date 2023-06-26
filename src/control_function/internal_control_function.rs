@@ -8,9 +8,10 @@ static INTERNAL_CONTROL_FUNCTION_LIST: heapless::Vec<InternalControlFunction, 2>
 /// Lets the network manager know if any ICF changed address since the last update.
 static ANY_CHANGED_ADDRESS: bool = false;
 
+// TODO: make fields private
 pub struct InternalControlFunction {
-    object_changed_address_since_last_update: bool,
-    state_machine: AddressClaimStateMachine,
+    pub object_changed_address_since_last_update: bool,
+    pub state_machine: AddressClaimStateMachine,
 }
 
 impl InternalControlFunction {
@@ -36,8 +37,8 @@ impl InternalControlFunction {
     //         address: todo!(),
     //         can_port,
     //         name: todo!(),
-    //         object_changed_address_since_last_update: false,
-    //     }
+        //     object_changed_address_since_last_update: false,
+        // }
     //     // let val = &icf;
 
 	// 	// if let Err(_) = INTERNAL_CONTROL_FUNCTION_LIST.push(icf) {
@@ -80,27 +81,27 @@ impl InternalControlFunction {
 
 	/// Used by the network manager to tell the ICF that the address claim state machine needs to process a J1939 command to move address.
 	pub fn process_commanded_address(&self, commanded_address: u8) { // (CANLibBadge<CANNetworkManager>)
-        self.state_machine.process_commanded_address(commanded_address);
+        // self.state_machine.process_commanded_address(commanded_address);
     }
 
 	/// Updates all address claim state machines.
     pub fn update_address_claiming() { // (CANLibBadge<CANNetworkManager>)
-        ANY_CHANGED_ADDRESS = false;
-        for &cf in INTERNAL_CONTROL_FUNCTION_LIST.iter() {
-            cf.update();
-        }
+        // ANY_CHANGED_ADDRESS = false;
+        // for &cf in INTERNAL_CONTROL_FUNCTION_LIST.iter() {
+        //     cf.update();
+        // }
     }
 
     pub fn update(&mut self) {
-		let previous_address = self.address;
-        self.object_changed_address_since_last_update = false;
-        self.state_machine.update();
-		let address = self.state_machine.get_claimed_address();
+		// let previous_address = self.address;
+        // self.object_changed_address_since_last_update = false;
+        // self.state_machine.update();
+		// let address = self.state_machine.get_claimed_address();
 
-		if previous_address != address {
-			ANY_CHANGED_ADDRESS = true;
-            self.object_changed_address_since_last_update = true;
-		}
+		// if previous_address != address {
+		// 	ANY_CHANGED_ADDRESS = true;
+        //     self.object_changed_address_since_last_update = true;
+		// }
 	}
 }
 

@@ -2,16 +2,22 @@
 // TODO: Rewrite like the device class.
 
 /// Enum containing all Function IDs.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum FunctionCode {
     // Shared
-    #[default] NotAvailable,
+    NotAvailable,
 
     // On Highway Equipment
     MachineControl,
 
     // Agricultural And Forestry Equipment
     VirtualTerminal,
+}
+
+impl Default for FunctionCode {
+    fn default() -> Self {
+        FunctionCode::NotAvailable
+    }
 }
 
 impl core::fmt::Display for FunctionCode {

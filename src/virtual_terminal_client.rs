@@ -1,10 +1,27 @@
 
 use crate::control_function::*;
 
+use heapless::FnvIndexMap;
+
+const VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE: usize = 8;
+const VT_BUTTON_EVENT_CALLBACK_LIST_SIZE: usize = 8;
 
 pub struct VirtualTerminalClient {
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
     internal_control_function: InternalControlFunction, //< The internal control function the client uses to send from
+
+	soft_key_event_callbacks: FnvIndexMap<usize, fn(VTKeyEvent), VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE>,
+	button_event_callbacks: FnvIndexMap<usize, fn(VTKeyEvent), VT_BUTTON_EVENT_CALLBACK_LIST_SIZE>,
+	// EventDispatcher<VTPointingEvent> pointingEventDispatcher; ///< A list of all pointing event callbacks
+	// EventDispatcher<VTSelectInputObjectEvent> selectInputObjectEventDispatcher; ///< A list of all select input object callbacks
+	// EventDispatcher<VTESCMessageEvent> escMessageEventDispatcher; ///< A list of all ESC event callbacks
+	// EventDispatcher<VTChangeNumericValueEvent> changeNumericValueEventDispatcher; ///< A list of all change numeric value callbacks
+	// EventDispatcher<VTChangeActiveMaskEvent> changeActiveMaskEventDispatcher; ///< A list of all change active mask callbacks
+	// EventDispatcher<VTChangeSoftKeyMaskEvent> changeSoftKeyMaskEventDispatcher; ///< A list of all change soft key mask callbacks
+	// EventDispatcher<VTChangeStringValueEvent> changeStringValueEventDispatcher; ///< A list of all change string value callbacks
+	// EventDispatcher<VTUserLayoutHideShowEvent> userLayoutHideShowEventDispatcher; ///< A list of all user layout hide/show callbacks
+	// EventDispatcher<VTAudioSignalTerminationEvent> audioSignalTerminationEventDispatcher; ///< A list of all control audio signal termination callbacks
+	// EventDispatcher<AuxiliaryFunctionEvent> auxiliaryFunctionEventDispatcher; ///< A list of all auxiliary function callbacks
 }
 
 impl VirtualTerminalClient {
@@ -12,13 +29,58 @@ impl VirtualTerminalClient {
         VirtualTerminalClient {
             partnered_control_function: partner,
             internal_control_function: client,
+			soft_key_event_callbacks: FnvIndexMap::new(),
+			button_event_callbacks: FnvIndexMap::new(),
         }
     }
 
-    pub fn update(&self) {
+	pub fn add_vt_soft_key_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
+		// Generate a key based on raw address (extreamly unsafe)
+		let key: usize = unsafe { core::mem::transmute(callback) };
+
+		let val = self.soft_key_event_callbacks.insert(key, callback);
+		if let Ok(_) = val {
+			log::debug!("vt_soft_key_event_listener registered! key:{key}");
+			Ok(key)
+		} else {
+			log::error!("VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE to small!");
+			Err(())
+		}
+	}
+
+	pub fn remove_vt_soft_key_event_listener(&mut self, handle: usize) {
+		let _ = self.soft_key_event_callbacks.remove(&handle);
+	}
+
+	pub fn add_vt_button_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
+		// Generate a key based on raw address (extreamly unsafe)
+		let key: usize = unsafe { core::mem::transmute(callback) };
+
+		let val = self.button_event_callbacks.insert(key, callback);
+		if let Ok(_) = val {
+			log::debug!("vt_button_event_listener registered! key:{key}");
+			Ok(key)
+		} else {
+			log::error!("VT_BUTTON_EVENT_CALLBACK_LIST_SIZE to small!");
+			Err(())
+		}
+	}
+
+	pub fn remove_button_key_event_listener(&mut self, handle: usize) {
+		let _ = self.button_event_callbacks.remove(&handle);
+	}
+
+    pub fn update(&mut self) {
         // Firt update the connected controll functions
         self.internal_control_function.update();
         // self.partnered_control_function.update();
+
+		for (_,callback) in &mut self.soft_key_event_callbacks {
+			callback(VTKeyEvent{ object_Id: 0, parentObjectID: 0, keyNumber: 0 });
+		}
+		for (_,callback) in &mut self.button_event_callbacks {
+			callback(VTKeyEvent{ object_Id: 0, parentObjectID: 0, keyNumber: 0 });
+		}
 
         // StateMachineState previousStateMachineState = state; // Save state to see if it changes this update
 
@@ -433,4 +495,14 @@ impl VirtualTerminalClient {
 		// 	firstTimeInState = false;
 		// }
     }
+}
+
+/// @brief A struct for storing information of a VT key input event
+#[derive(Debug)]
+pub struct VTKeyEvent {
+	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
+	object_Id: u16, //< The object ID
+	parentObjectID: u16, //< The parent object ID
+	keyNumber: u8, //< The key number
+	// KeyActivationCode keyEvent; ///< The key event
 }

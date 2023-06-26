@@ -8,9 +8,9 @@
 /// assert_eq!(industry_group, Into::<IndustryGroup>::into(2));
 /// assert_eq!(Into::<u8>::into(industry_group), 2);
 /// ```
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum IndustryGroup {
-    #[default] Global = 0,
+    Global = 0,
     OnHighwayEquipment = 1,
     AgriculturalAndForestryEquipment = 2,
     ConstructionEquipment = 3,
@@ -18,6 +18,12 @@ pub enum IndustryGroup {
     IndustrialProcessControl = 5,
     ReservedForSAE1 = 6,
     ReservedForSAE2 = 7,
+}
+
+impl Default for IndustryGroup {
+    fn default() -> Self {
+        IndustryGroup::Global
+    }
 }
 
 /// Display the Industry Group name.

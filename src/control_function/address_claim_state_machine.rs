@@ -78,9 +78,8 @@ use core::time::Duration;
 use crate::{Address, name::Name, hardware_integration::{TimeDriver, TimeDriverTrait}, CanFrame};
 
 /// Defines the state machine states for address claiming
-#[derive(Default)]
 enum State {
-	#[default] None, //< Address claiming is uninitialized
+	None, //< Address claiming is uninitialized
 	WaitForClaim, //< State machine is waiting for the random delay time
 	SendRequestForClaim, //< State machine is sending the request for address claim
 	WaitForRequestContentionPeriod, //< State machine is waiting for the address claim contention period
@@ -90,6 +89,12 @@ enum State {
 	SendReclaimAddressOnRequest, //< An ECU requested address claim, inform the bus of our current address
 	UnableToClaim, //< State machine could not claim an address
 	AddressClaimingComplete, //< Addres claiming is complete and we have an address
+}
+
+impl Default for State {
+    fn default() -> Self {
+        State::None
+    }
 }
 
 pub struct AddressClaimStateMachine {
@@ -129,6 +134,14 @@ impl AddressClaimStateMachine {
         })
     }
 
+	pub fn can_port(&self) -> u8 {
+        self.can_port
+    }
+    
+    pub fn name(&self) -> Name {
+        self.name
+    }
+
 	pub fn set_is_enabled(&mut self, value: bool) {
 		self.is_enabled = value;
 	}
@@ -145,7 +158,7 @@ impl AddressClaimStateMachine {
 	/// @param[in] message The CAN message being received
 	/// @param[in] parentPointer A context variable to find the relevant address claimer
 	fn process_rx_message(&self, message: &CanFrame) {
-		if (message.can_port_index() == parent.port_index) && (parent.is_enabled()) {
+		// if (message.can_port_index() == parent.port_index) && (parent.is_enabled()) {
 		// 	switch (message.get_identifier().get_parameter_group_number())
 		// 	{
 		// 		case static_cast<std::uint32_t>(CANLibParameterGroupNumber::ParameterGroupNumberRequest):
@@ -201,7 +214,7 @@ impl AddressClaimStateMachine {
 		// 		}
 		// 		break;
 		// 	}
-		}
+		// }
     }
 
 }

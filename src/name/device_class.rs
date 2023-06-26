@@ -11,10 +11,10 @@ use super::IndustryGroup;
 /// assert_eq!(device_class, Into::<DeviceClass>::into((5, Some(IndustryGroup::AgriculturalAndForestryEquipment))));
 /// assert_eq!(Into::<u8>::into(device_class), 5);
 /// ```
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum DeviceClass {
     // Shared
-    #[default] NotAvailable,
+    NotAvailable,
     NonSpecificSystem(IndustryGroup),
     Tractor(IndustryGroup),
 
@@ -81,6 +81,12 @@ pub enum DeviceClass {
 
     // Industrial Process Control
     IndustrialProcessControlStationary,
+}
+
+impl Default for DeviceClass {
+    fn default() -> Self {
+        DeviceClass::NotAvailable
+    }
 }
 
 /// Display the Device Class name.

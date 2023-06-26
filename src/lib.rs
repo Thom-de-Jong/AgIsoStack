@@ -9,11 +9,12 @@ pub mod control_function;
 
 // TODO: Decide if object pool manipulation is needed in de base library
 // Should it work in no_std?
-// pub mod objects;
+// mod objects;
 // pub mod object_pool;
+// pub use objects::ObjectId;
 
-mod virtual_terminal_client;
-pub use virtual_terminal_client::VirtualTerminalClient;
+pub mod virtual_terminal_client;
+// pub use virtual_terminal_client::VirtualTerminalClient;
 
 
 // TODO: Implement embedded-can
