@@ -1,187 +1,41 @@
-// #include "isobus/hardware_integration/available_can_drivers.hpp"
-// #include "isobus/hardware_integration/can_hardware_interface.hpp"
-// #include "isobus/isobus/can_general_parameter_group_numbers.hpp"
-// #include "isobus/isobus/can_network_manager.hpp"
-// #include "isobus/isobus/can_partnered_control_function.hpp"
-// #include "isobus/isobus/can_stack_logger.hpp"
-// #include "isobus/isobus/isobus_virtual_terminal_client.hpp"
-// #include "isobus/utility/iop_file_interface.hpp"
 
-// #include "console_logger.cpp"
-// #include "objectPoolObjects.h"
+use std::{thread, time::Duration, sync::mpsc::*};
 
-// #include <atomic>
-// #include <csignal>
-// #include <functional>
-// #include <iostream>
-// #include <memory>
-
-// //! It is discouraged to use global variables, but it is done here for simplicity.
-// static std::shared_ptr<isobus::VirtualTerminalClient> TestVirtualTerminalClient = nullptr;
-// static std::atomic_bool running = { true };
-
-// void signal_handler(int)
-// {
-// 	running = false;
-// }
-
-// // This callback will provide us with event driven notifications of button presses from the stack
-// void handleVTKeyEvents(const isobus::VirtualTerminalClient::VTKeyEvent &event)
-// {
-// 	static std::uint32_t exampleNumberOutput = 214748364; // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
-
-// 	switch (event.keyEvent)
-// 	{
-// 		case isobus::VirtualTerminalClient::KeyActivationCode::ButtonUnlatchedOrReleased:
-// 		{
-// 			switch (event.objectID)
-// 			{
-// 				case Plus_Button:
-// 				{
-// 					TestVirtualTerminalClient->send_change_numeric_value(ButtonExampleNumber_VarNum, ++exampleNumberOutput);
-// 				}
-// 				break;
-
-// 				case Minus_Button:
-// 				{
-// 					TestVirtualTerminalClient->send_change_numeric_value(ButtonExampleNumber_VarNum, --exampleNumberOutput);
-// 				}
-// 				break;
-
-// 				case alarm_SoftKey:
-// 				{
-// 					TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, example_AlarmMask);
-// 				}
-// 				break;
-
-// 				case acknowledgeAlarm_SoftKey:
-// 				{
-// 					TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, mainRunscreen_DataMask);
-// 				}
-// 				break;
-
-// 				default:
-// 					break;
-// 			}
-// 		}
-// 		break;
-
-// 		default:
-// 			break;
-// 	}
-// }
-
-// int main()
-// {
-// 	std::signal(SIGINT, signal_handler);
-
-// 	// Automatically load the desired CAN driver based on the available drivers
-// 	std::shared_ptr<isobus::CANHardwarePlugin> canDriver = nullptr;
-// #if defined(ISOBUS_SOCKETCAN_AVAILABLE)
-// 	canDriver = std::make_shared<isobus::SocketCANInterface>("can0");
-// #elif defined(ISOBUS_WINDOWSPCANBASIC_AVAILABLE)
-// 	canDriver = std::make_shared<isobus::PCANBasicWindowsPlugin>(PCAN_USBBUS1);
-// #elif defined(ISOBUS_WINDOWSINNOMAKERUSB2CAN_AVAILABLE)
-// 	canDriver = std::make_shared<isobus::InnoMakerUSB2CANWindowsPlugin>(0); // CAN0
-// #elif defined(ISOBUS_MACCANPCAN_AVAILABLE)
-// 	canDriver = std::make_shared<isobus::MacCANPCANPlugin>(PCAN_USBBUS1);
-// #endif
-// 	if (nullptr == canDriver)
-// 	{
-// 		std::cout << "Unable to find a CAN driver. Please make sure you have one of the above drivers installed with the library." << std::endl;
-// 		std::cout << "If you want to use a different driver, please add it to the list above." << std::endl;
-// 		return -1;
-// 	}
-
-// 	isobus::CANStackLogger::set_can_stack_logger_sink(&logger);
-// 	isobus::CANStackLogger::set_log_level(isobus::CANStackLogger::LoggingLevel::Info); // Change this to Debug to see more information
-// 	isobus::CANHardwareInterface::set_number_of_can_channels(1);
-// 	isobus::CANHardwareInterface::assign_can_channel_frame_handler(0, canDriver);
-
-// 	if ((!isobus::CANHardwareInterface::start()) || (!canDriver->get_is_valid()))
-// 	{
-// 		std::cout << "Failed to start hardware interface. The CAN driver might be invalid." << std::endl;
-// 		return -2;
-// 	}
-
-// 	std::this_thread::sleep_for(std::chrono::milliseconds(250));
-
-// 	isobus::NAME TestDeviceNAME(0);
-
-// 	//! Make sure you change these for your device!!!!
-// 	//! This is an example device that is using a manufacturer code that is currently unused at time of writing
-// 	TestDeviceNAME.set_arbitrary_address_capable(true);
-// 	TestDeviceNAME.set_industry_group(1);
-// 	TestDeviceNAME.set_device_class(0);
-// 	TestDeviceNAME.set_function_code(static_cast<std::uint8_t>(isobus::NAME::Function::SteeringControl));
-// 	TestDeviceNAME.set_identity_number(2);
-// 	TestDeviceNAME.set_ecu_instance(0);
-// 	TestDeviceNAME.set_function_instance(0);
-// 	TestDeviceNAME.set_device_class_instance(0);
-// 	TestDeviceNAME.set_manufacturer_code(64);
-
-// 	std::vector<std::uint8_t> testPool = isobus::IOPFileInterface::read_iop_file("VT3TestPool.iop");
-
-// 	if (testPool.empty())
-// 	{
-// 		std::cout << "Failed to load object pool from VT3TestPool.iop" << std::endl;
-// 		return -3;
-// 	}
-// 	std::cout << "Loaded object pool from VT3TestPool.iop" << std::endl;
-
-// 	// Generate a unique version string for this object pool (this is optional, and is entirely application specific behavior)
-// 	std::string objectPoolHash = isobus::IOPFileInterface::hash_object_pool_to_version(testPool);
-
-// 	const isobus::NAMEFilter filterVirtualTerminal(isobus::NAME::NAMEParameters::FunctionCode, static_cast<std::uint8_t>(isobus::NAME::Function::VirtualTerminal));
-// 	const std::vector<isobus::NAMEFilter> vtNameFilters = { filterVirtualTerminal };
-// 	auto TestInternalECU = std::make_shared<isobus::InternalControlFunction>(TestDeviceNAME, 0x1C, 0);
-// 	auto TestPartnerVT = std::make_shared<isobus::PartneredControlFunction>(0, vtNameFilters);
-
-// 	TestVirtualTerminalClient = std::make_shared<isobus::VirtualTerminalClient>(TestPartnerVT, TestInternalECU);
-// 	TestVirtualTerminalClient->set_object_pool(0, isobus::VirtualTerminalClient::VTVersion::Version3, testPool.data(), testPool.size(), objectPoolHash);
-// 	auto softKeyListener = TestVirtualTerminalClient->add_vt_soft_key_event_listener(handleVTKeyEvents);
-// 	auto buttonListener = TestVirtualTerminalClient->add_vt_button_event_listener(handleVTKeyEvents);
-// 	TestVirtualTerminalClient->initialize(true);
-
-// 	while (running)
-// 	{
-// 		// CAN stack runs in other threads. Do nothing forever.
-// 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-// 	}
-
-// 	TestVirtualTerminalClient->terminate();
-// 	isobus::CANHardwareInterface::stop();
-// 	return 0;
-// }
-
-use std::{thread, time::Duration, sync::mpsc::{*, self}};
-
-use agisostack::{Address, hardware_integration::*, name::*, control_function::*, CanFrame, virtual_terminal_client::*};
+use agisostack::{
+    Address,
+    hardware_integration::*,
+    name::*,
+    control_function::*,
+    CanFrame,
+    virtual_terminal_client::*, CanNetworkManager,
+};
 
 fn main() {
     // Setup the logging interface.
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
-        .format_timestamp_nanos()
+        .format_timestamp_millis()
         .init();
 
-    
-    let (tx, rx): (Sender<CanFrame>, Receiver<CanFrame>) = mpsc::channel();
+    // Create the channel used to send CanFrames from the Canbus thread to the Isobus thread.
+    let (canbus_tx, canbus_rx): (Sender<CanFrame>, Receiver<CanFrame>) = channel();
+    // Create the channel used to send CanFrames from the Isobus thread to the Canbus thread.
+    let (isobus_tx, isobus_rx): (Sender<CanFrame>, Receiver<CanFrame>) = channel();
 
-    // Start the canbus thread.
-    thread::spawn(move || canbus_task(tx));
+    // Start the Canbus thread.
+    thread::spawn(move || canbus_task(canbus_tx, isobus_rx));
 
-    // Start the isobus thread.
-    thread::spawn(move || isobus_task(rx));
+    // Start the Isobus thread.
+    thread::spawn(move || isobus_task(isobus_tx, canbus_rx));
 
     // For example; Do all of our GUI in the main thread.
     loop {
-        log::info!("Time: {:?}", TimeDriver::time_elapsed());
+        // log::info!("Time: {:?}", TimeDriver::time_elapsed());
         thread::sleep(Duration::from_secs(1));
     }
 }
 
-fn canbus_task(tx: Sender<CanFrame>) {
+fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     let mut can_driver = CanDriver::new();
     can_driver.open();
 
@@ -189,27 +43,23 @@ fn canbus_task(tx: Sender<CanFrame>) {
         if let Some(frame) = can_driver.read() {
             let _ = tx.send(frame);
         }
-
-        thread::yield_now();
+        if let Ok(frame) = rx.try_recv() {
+            can_driver.write(&frame);
+        }
     }
 
     log::error!("Canbus task exited! Driver no longer valid.");
 }
 
-fn isobus_task(rx: Receiver<CanFrame>) {
+fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     
+    // Create a new mannager for the CAN network we are connecting to.
+    let network_manager: CanNetworkManager = CanNetworkManager::new();
 
-//  TODO: Setup global frame handler
-// 	isobus::CANHardwareInterface::set_number_of_can_channels(1);
-// 	isobus::CANHardwareInterface::assign_can_channel_frame_handler(0, canDriver);
+    // Bind a callback to the network manager to be called when we send a can frame.
+    network_manager.send_can_frame_callback(|f| { let _ = tx.send(f); });
 
-// 	if ((!isobus::CANHardwareInterface::start()) || (!canDriver->get_is_valid()))
-// 	{
-// 		std::cout << "Failed to start hardware interface. The CAN driver might be invalid." << std::endl;
-// 		return -2;
-// 	}
 
-    thread::sleep(Duration::from_millis(250));
 
     // Create a new name builder.
 	let mut name_builder = Name::builder();
@@ -226,19 +76,20 @@ fn isobus_task(rx: Receiver<CanFrame>) {
 	    .device_class_instance(0)
 	    .manufacturer_code(64);
 
+    // Build the name and specify the address we want to claim.
     let test_device_name = name_builder.build();
     let test_device_address = Address(0x1C);
 
-    // Read iop file.
-    let mut test_pool = Vec::new();
-    test_pool.extend(std::fs::read("VT3TestPool.iop"));
-
-    if test_pool.is_empty() {
-        log::error!("Failed to load object pool from VT3TestPool.iop")
-    } else {
+    // Read iop file and check if we read it.
+    let mut test_pool: Vec<u8> = Vec::new();
+    if let Ok(data) = std::fs::read("VT3TestPool.iop") {
+        test_pool.extend(data);
         log::info!("Loaded object pool from VT3TestPool.iop")
+    } else {
+        log::error!("Failed to load object pool from VT3TestPool.iop")
     }
 
+    // Create the Name filer used to find a Virtual Terminal on the network.
     let filter_virtual_terminal = NameFilter::FunctionCode(FunctionCode::VirtualTerminal);
     let vt_name_filters = vec![filter_virtual_terminal];
     
@@ -246,69 +97,78 @@ fn isobus_task(rx: Receiver<CanFrame>) {
     let test_internal_ecu = ControlFunction::new_internal_control_function(test_device_name, test_device_address, 0).unwrap();
     let test_partner_vt = ControlFunction::new_partnered_control_function(0, &vt_name_filters).unwrap();
 
+    // Create the channel used to send VTKeyEvents from the callback to this task.
+    // event_tx and event_rx have to outlive test_virtual_terminal_client, so we define them first.
+    let (event_tx, event_rx): (Sender<VTKeyEvent>, Receiver<VTKeyEvent>) = mpsc::channel();
+
+    // Create a new Virtual Terminal Client (VTC), the main struct used to comunicate with a Virtual Terminal.
     let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
-    // test_virtual_terminal_client.set_object_pool(0, VirtualTerminalClient::VTVersion::Version3, test_pool);
-    let soft_key_listner = test_virtual_terminal_client.add_vt_soft_key_event_listener(|e| handle_vt_key_events(e) );
-    let button_listner = test_virtual_terminal_client.add_vt_button_event_listener(|e| handle_vt_key_events(e) );
-    // test_virtual_terminal_client.initialize(true);
+    
+    // Set the Object pool to be used by our VTC.
+    // A VTC can use multiple Object pools, we store our pool at the first pool index (0). 
+    test_virtual_terminal_client.set_object_pool(0, VTVersion::Version3, &test_pool);
+
+    // Bind callbacks to VTC events.
+    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&mut |event: VTKeyEvent| { handle_vt_key_events(event, event_tx.clone()) });
+    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&mut |event: VTKeyEvent| { handle_vt_key_events(event, event_tx.clone()) });
+
+    // Initialize the VTC.
+    test_virtual_terminal_client.initialize();
+
+    // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
+    let mut example_number_output: u32 = 214748364;
 
     loop {
         // Receive a CanFrame without blocking
-        if let Ok(e) = rx.try_recv() {
-            log::info!("{} reveived!", e);
+        if let Ok(frame) = rx.try_recv() {
+            network_manager.process_can_frame(frame);
+            log::info!("{} reveived!", frame);
+        }
+
+        // Receive VTKeyEvents without blocking
+        if let Ok(event) = event_rx.try_recv() {
+            match event.key_event {
+                KeyActivationCode::ButtonUnlatchedOrReleased => {
+                    match event.object_id {
+                        PLUS_BUTTON => {
+                            example_number_output += 1;
+                            test_virtual_terminal_client.send_change_numeric_value(BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+                            tx.send(t)
+                        },
+                        MINUS_BUTTON => {
+                            example_number_output -= 1;
+                            test_virtual_terminal_client.send_change_numeric_value(BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+                        },
+                        ALARM_SOFT_KEY => {
+                            // TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, example_AlarmMask);
+                        },
+                        ACKNOWLEDGE_ALARM_SOFT_KEY => {
+                            // TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, mainRunscreen_DataMask);
+                        },
+                        _ => {},
+                    }
+                },
+                _ => {},
+            }
         }
 
         // Update the VirtualTerminalClient
         test_virtual_terminal_client.update();
     }
+    
+    // TestVirtualTerminalClient->terminate();
+    // isobus::CANHardwareInterface::stop();
 }
 
-// This callback will provide us with event driven notifications of button presses from the stack
-fn handle_vt_key_events(_event: VTKeyEvent) {
-    // println!("Callback a received event! {:?}", event);
+
+const ALARM_SOFT_KEY: u16 = 5000; //0x1388
+const ACKNOWLEDGE_ALARM_SOFT_KEY: u16 = 5001; //0x1389
+const PLUS_BUTTON: u16 = 6000; //0x1770
+const MINUS_BUTTON: u16 = 6001; //0x1771
+const BUTTON_EXAMPLE_NUMBER_VAR_NUM: u16 = 21000; //0x5208
+
+// This callback will provide us with event driven notifications of button presses from the stack.
+// Using a channel we can send events to the isobus_task to be processed.
+fn handle_vt_key_events(event: VTKeyEvent, tx: Sender<VTKeyEvent>) {
+    let _ = tx.send(event.clone());
 }
-
-// void handleVTKeyEvents(const isobus::VirtualTerminalClient::VTKeyEvent &event)
-// {
-// 	static std::uint32_t exampleNumberOutput = 214748364; // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
-
-// 	switch (event.keyEvent)
-// 	{
-// 		case isobus::VirtualTerminalClient::KeyActivationCode::ButtonUnlatchedOrReleased:
-// 		{
-// 			switch (event.objectID)
-// 			{
-// 				case Plus_Button:
-// 				{
-// 					TestVirtualTerminalClient->send_change_numeric_value(ButtonExampleNumber_VarNum, ++exampleNumberOutput);
-// 				}
-// 				break;
-
-// 				case Minus_Button:
-// 				{
-// 					TestVirtualTerminalClient->send_change_numeric_value(ButtonExampleNumber_VarNum, --exampleNumberOutput);
-// 				}
-// 				break;
-
-// 				case alarm_SoftKey:
-// 				{
-// 					TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, example_AlarmMask);
-// 				}
-// 				break;
-
-// 				case acknowledgeAlarm_SoftKey:
-// 				{
-// 					TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, mainRunscreen_DataMask);
-// 				}
-// 				break;
-
-// 				default:
-// 					break;
-// 			}
-// 		}
-// 		break;
-
-// 		default:
-// 			break;
-// 	}
-// }

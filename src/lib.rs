@@ -3,9 +3,20 @@
 #[cfg(feature = "std")]
 extern crate std;
 
-pub mod hardware_integration;
+// Re-export can data types
+mod can_frame;
+pub use can_frame::CanFrame;
+
+// Re-export low level Isobus types
+mod can_message;
+pub use can_message::CanMessage;
 pub mod name;
 pub mod control_function;
+mod parameter_group_numbers;
+pub use parameter_group_numbers::ParameterGroupNumber;
+
+
+pub mod hardware_integration;
 
 // TODO: Decide if object pool manipulation is needed in de base library
 // Should it work in no_std?
@@ -13,73 +24,19 @@ pub mod control_function;
 // pub mod object_pool;
 // pub use objects::ObjectId;
 
+
 pub mod virtual_terminal_client;
 // pub use virtual_terminal_client::VirtualTerminalClient;
 
 
-// TODO: Implement embedded-can
+// mod transport_protocol_manager;
+// mod extended_transport_protocol_manager;
+mod can_network_manager;
+pub use can_network_manager::CanNetworkManager;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct CanFrame {
-    id: Id,
-    dlc: usize,
-    data: [u8; 8],
-}
 
-impl CanFrame {
-    pub fn new(id: impl Into<Id>, data: &[u8]) -> Self {
-        let id = id.try_into().unwrap_or(Id::Extended(ExtendedId::MAX));
-        let dlc = usize::min(data.len(), 8);
-        let mut temp_data: [u8; 8] = [0x0; 8];
 
-        temp_data[..dlc].clone_from_slice(data);
-
-        Self {
-            id,
-            dlc,
-            data: temp_data,
-        }
-    }
-
-    pub fn is_extended(&self) -> bool {
-        match self.id {
-            Id::Standard(_) => false,
-            Id::Extended(_) => true,
-        }
-    }
-
-    pub fn id(&self) -> Id {
-        self.id
-    }
-
-    pub fn dlc(&self) -> usize {
-        self.dlc
-    }
-
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-}
-
-impl core::fmt::Display for CanFrame {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "0x{:08X}, {}, {:02X?}",
-            self.id().as_raw(),
-            self.dlc(),
-            &self.data
-        )
-    }
-}
-
-impl Default for CanFrame {
-    fn default() -> Self {
-        CanFrame::new(Id::Extended(ExtendedId::MAX), &[])
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct StandardId(u32);
 
 impl StandardId {
@@ -118,7 +75,7 @@ impl StandardId {
 }
 
 /// Extended 29-bit CAN Identifier (`0..=1FFF_FFFF`).
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ExtendedId(u32);
 
 impl ExtendedId {
@@ -163,7 +120,7 @@ impl ExtendedId {
 }
 
 /// A CAN Identifier (standard or extended).
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Id {
     Standard(StandardId), //< Standard 11-bit Identifier (`0..=0x7FF`).
     Extended(ExtendedId), //< Extended 29-bit Identifier (`0..=0x1FFF_FFFF`).
@@ -206,6 +163,21 @@ impl From<u32> for Id {
 
         Id::Extended(ExtendedId::MAX)
     }
+}
+
+
+/// Defines all the CAN frame priorities that can be encoded in a frame ID
+#[repr(u8)]
+#[derive(Debug, PartialEq)]
+pub enum CanPriority {
+	PriorityHighest0 = 0, //< Highest CAN priority
+	Priority1 = 1, //< Priority highest - 1
+	Priority2 = 2, //< Priority highest - 2
+	Priority3 = 3, //< Priority highest - 3 (Control messages priority)
+	Priority4 = 4, //< Priority highest - 4
+	Priority5 = 5, //< Priority highest - 5
+	PriorityDefault6 = 6, //< The default priority
+	PriorityLowest7 = 7, //< The lowest priority
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
