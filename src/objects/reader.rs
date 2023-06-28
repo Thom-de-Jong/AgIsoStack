@@ -1,5 +1,9 @@
 use super::*;
 
+pub enum ParseError {
+    DataEmpty,
+}
+
 impl Object {
     pub fn read(data: &mut dyn Iterator<Item = u8>) -> Result<Self, ParseError> {
         let id = Self::read_u16(data)?.into();

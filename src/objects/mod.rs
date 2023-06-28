@@ -1,7 +1,7 @@
 pub mod reader;
 pub mod writer;
 
-use heapless::Vec;
+use alloc::{vec::Vec, string::String};
 
 use crate::name::Name;
 
@@ -2023,65 +2023,65 @@ pub struct ObjectLabel {
 
 
 #[derive(Debug)]
-pub struct WorkingSet<const ObjectRefN: usize, const MacroRefN: usize, const LangCodeN: usize> {
+pub struct WorkingSet {
     pub id: ObjectId,
     pub background_colour: u8,
     pub selectable: bool,
     pub active_mask: ObjectId,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
-    pub language_codes: Vec<[u8; 2], LangCodeN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
+    pub language_codes: Vec<String>,
 }
 
 #[derive(Debug)]
-pub struct DataMask<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct DataMask {
     pub id: ObjectId,
     pub background_colour: u8,
     pub soft_key_mask: ObjectId,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct AlarmMask<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct AlarmMask {
     pub id: ObjectId,
     pub background_colour: u8,
     pub soft_key_mask: ObjectId,
     pub priority: u8,
     pub acoustic_signal: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct Container<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct Container {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
     pub hidden: bool,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct SoftKeyMask<const ObjectN: usize, const MacroRefN: usize> {
+pub struct SoftKeyMask {
     pub id: ObjectId,
     pub background_colour: u8,
-    pub objects: Vec<ObjectId, ObjectN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub objects: Vec<ObjectId>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct Key<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct Key {
     pub id: ObjectId,
     pub background_colour: u8,
     pub key_code: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct Button<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct Button {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2089,12 +2089,12 @@ pub struct Button<const ObjectRefN: usize, const MacroRefN: usize> {
     pub border_colour: u8,
     pub key_code: u8,
     pub options: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct InputBoolean<const MacroRefN: usize> {
+pub struct InputBoolean {
     pub id: ObjectId,
     pub background_colour: u8,
     pub width: u16,
@@ -2102,11 +2102,11 @@ pub struct InputBoolean<const MacroRefN: usize> {
     pub variable_reference: ObjectId,
     pub value: bool,
     pub enabled: bool,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct InputString<const ValueN: usize, const MacroRefN: usize> {
+pub struct InputString {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2116,13 +2116,13 @@ pub struct InputString<const ValueN: usize, const MacroRefN: usize> {
     pub options: u8,
     pub variable_reference: ObjectId,
     pub justification: u8,
-    pub value: [u8; ValueN],
+    pub value: String,
     pub enabled: bool,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct InputNumber<const MacroRefN: usize> {
+pub struct InputNumber {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2139,23 +2139,23 @@ pub struct InputNumber<const MacroRefN: usize> {
     pub format: bool,
     pub justification: u8,
     pub options2: u8,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct InputList<const ListItemN: usize, const MacroRefN: usize> {
+pub struct InputList {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
     pub variable_reference: ObjectId,
     pub value: u8,
     pub options: u8,
-    pub list_items: Vec<ObjectId, ListItemN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub list_items: Vec<ObjectId>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputString<const ValueN: usize, const MacroRefN: usize> {
+pub struct OutputString {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2164,12 +2164,12 @@ pub struct OutputString<const ValueN: usize, const MacroRefN: usize> {
     pub options: u8,
     pub variable_reference: ObjectId,
     pub justification: u8,
-    pub value: [u8; ValueN],
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub value: String,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputNumber<const MacroRefN: usize> {
+pub struct OutputNumber {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2183,43 +2183,43 @@ pub struct OutputNumber<const MacroRefN: usize> {
     pub nr_of_decimals: u8,
     pub format: bool,
     pub justification: u8,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputList<const ListItemN: usize, const MacroRefN: usize> {
+pub struct OutputList {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
     pub variable_reference: ObjectId,
     pub value: u8,
-    pub list_items: Vec<ObjectId, ListItemN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub list_items: Vec<ObjectId>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputLine<const MacroRefN: usize> {
+pub struct OutputLine {
     pub id: ObjectId,
     pub line_attributes: ObjectId,
     pub width: u16,
     pub height: u16,
     pub line_direction: u8,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputRectangle<const MacroRefN: usize> {
+pub struct OutputRectangle {
     pub id: ObjectId,
     pub line_attributes: ObjectId,
     pub width: u16,
     pub height: u16,
     pub line_suppression: u8,
     pub fill_attributes: ObjectId,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputEllipse<const MacroRefN: usize> {
+pub struct OutputEllipse {
     pub id: ObjectId,
     pub line_attributes: ObjectId,
     pub width: u16,
@@ -2228,23 +2228,23 @@ pub struct OutputEllipse<const MacroRefN: usize> {
     pub start_angle: u8,
     pub end_angle: u8,
     pub fill_attributes: ObjectId,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputPolygon<const PointN: usize, const MacroRefN: usize> {
+pub struct OutputPolygon {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
     pub line_attributes: ObjectId,
     pub fill_attributes: ObjectId,
     pub polygon_type: u8,
-    pub points: Vec<Point<u16>, PointN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub points: Vec<Point<u16>>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputMeter<const MacroRefN: usize> {
+pub struct OutputMeter {
     pub id: ObjectId,
     pub width: u16,
     pub needle_colour: u8,
@@ -2258,11 +2258,11 @@ pub struct OutputMeter<const MacroRefN: usize> {
     pub max_value: u16,
     pub variable_reference: ObjectId,
     pub value: u16,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputLinearBarGraph<const MacroRefN: usize> {
+pub struct OutputLinearBarGraph {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2276,11 +2276,11 @@ pub struct OutputLinearBarGraph<const MacroRefN: usize> {
     pub value: u16,
     pub target_value_variable_reference: ObjectId,
     pub target_value: u16,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct OutputArchedBarGraph<const MacroRefN: usize> {
+pub struct OutputArchedBarGraph {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2296,11 +2296,11 @@ pub struct OutputArchedBarGraph<const MacroRefN: usize> {
     pub value: u16,
     pub target_value_variable_reference: ObjectId,
     pub target_value: u16,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct PictureGraphic<const DataN: usize, const MacroRefN: usize> {
+pub struct PictureGraphic {
     pub id: ObjectId,
     pub width: u16,
     pub actual_width: u16,
@@ -2308,8 +2308,8 @@ pub struct PictureGraphic<const DataN: usize, const MacroRefN: usize> {
     pub format: u8,
     pub options: u8,
     pub transparency_colour: u8,
-    pub data: [u8; DataN],
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub data: Vec<u8>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
@@ -2319,45 +2319,45 @@ pub struct NumberVariable {
 }
 
 #[derive(Debug)]
-pub struct StringVariable<const ValueN: usize> {
+pub struct StringVariable {
     pub id: ObjectId,
-    pub value: [u8; ValueN],
+    pub value: String,
 }
 
 #[derive(Debug)]
-pub struct FontAttributes<const MacroRefN: usize> {
+pub struct FontAttributes {
     pub id: ObjectId,
     pub font_colour: u8,
     pub font_size: u8,
     pub font_type: u8,
     pub font_style: u8,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct LineAttributes<const MacroRefN: usize> {
+pub struct LineAttributes {
     pub id: ObjectId,
     pub line_colour: u8,
     pub line_width: u8,
     pub line_art: u16,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct FillAttributes<const MacroRefN: usize> {
+pub struct FillAttributes {
     pub id: ObjectId,
     pub fill_type: u8,
     pub fill_colour: u8,
     pub fill_pattern: ObjectId,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct InputAttributes<const ValidationStringN: usize, const MacroRefN: usize> {
+pub struct InputAttributes {
     pub id: ObjectId,
     pub validation_type: u8,
-    pub validation_string: [u8; ValidationStringN],
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub validation_string: String,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 // TODO; Implement code planes
@@ -2375,42 +2375,42 @@ pub struct ObjectPointer {
 }
 
 #[derive(Debug)]
-pub struct Macro<const CommandN: usize> {
+pub struct Macro {
     pub id: ObjectId,
-    pub commands: Vec<u8, CommandN>,
+    pub commands: Vec<u8>,
 }
 
 #[derive(Debug)]
-pub struct AuxiliaryFunctionType1<const ObjectRefN: usize> {
+pub struct AuxiliaryFunctionType1 {
     pub id: ObjectId,
     pub background_colour: u8,
     pub function_type: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
+    pub object_refs: Vec<ObjectRef>,
 }
 
 #[derive(Debug)]
-pub struct AuxiliaryInputType1<const ObjectRefN: usize> {
+pub struct AuxiliaryInputType1 {
     pub id: ObjectId,
     pub background_colour: u8,
     pub function_type: u8,
     pub input_id: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
+    pub object_refs: Vec<ObjectRef>,
 }
 
 #[derive(Debug)]
-pub struct AuxiliaryFunctionType2<const ObjectRefN: usize> {
+pub struct AuxiliaryFunctionType2 {
     pub id: ObjectId,
     pub background_colour: u8,
     pub function_attributes: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
+    pub object_refs: Vec<ObjectRef>,
 }
 
 #[derive(Debug)]
-pub struct AuxiliaryInputType2<const ObjectRefN: usize> {
+pub struct AuxiliaryInputType2 {
     pub id: ObjectId,
     pub background_colour: u8,
     pub function_attributes: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
+    pub object_refs: Vec<ObjectRef>,
 }
 
 #[derive(Debug)]
@@ -2421,9 +2421,9 @@ pub struct AuxiliaryControlDesignatorType2 {
 }
 
 #[derive(Debug)]
-pub struct ColourMap<const ColourMapN: usize> {
+pub struct ColourMap {
     pub id: ObjectId,
-    pub colour_map: Vec<u8, ColourMapN>,
+    pub colour_map: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -2449,7 +2449,7 @@ pub struct GraphicsContext {
 }
 
 #[derive(Debug)]
-pub struct WindowMask<const ObjectN: usize, const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct WindowMask {
     pub id: ObjectId,
     pub width: u8,
     pub height: u8,
@@ -2459,33 +2459,33 @@ pub struct WindowMask<const ObjectN: usize, const ObjectRefN: usize, const Macro
     pub name: ObjectId,
     pub window_title: ObjectId,
     pub window_icon: ObjectId,
-    pub objects: Vec<ObjectId, ObjectN>,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub objects: Vec<ObjectId>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct KeyGroup<const ObjectN: usize, const MacroRefN: usize> {
+pub struct KeyGroup {
     pub id: ObjectId,
     pub options: u8,
     pub name: ObjectId,
     pub key_group_icon: ObjectId,
-    pub objects: Vec<ObjectId, ObjectN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub objects: Vec<ObjectId>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct ObjectLabelReferenceList<const ObjectLabelN: usize> {
+pub struct ObjectLabelReferenceList {
     pub id: ObjectId,
-    pub object_labels: Vec<ObjectLabel, ObjectLabelN>,
+    pub object_labels: Vec<ObjectLabel>,
 }
 
 #[derive(Debug)]
-pub struct ExternalObjectDefinition<const ObjectN: usize> {
+pub struct ExternalObjectDefinition {
     pub id: ObjectId,
     pub options: u8,
     pub name: Name,
-    pub objects: Vec<ObjectId, ObjectN>,
+    pub objects: Vec<ObjectId>,
 }
 
 #[derive(Debug)]
@@ -2504,7 +2504,7 @@ pub struct ExternalObjectPointer {
 }
 
 #[derive(Debug)]
-pub struct Animation<const ObjectRefN: usize, const MacroRefN: usize> {
+pub struct Animation {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
@@ -2515,33 +2515,33 @@ pub struct Animation<const ObjectRefN: usize, const MacroRefN: usize> {
     pub last_child_index: u8,
     pub default_child_index: u8,
     pub options: u8,
-    pub object_refs: Vec<ObjectRef, ObjectRefN>,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub object_refs: Vec<ObjectRef>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 #[derive(Debug)]
-pub struct ColourPalette<const ColourN: usize> {
+pub struct ColourPalette {
     pub id: ObjectId,
     pub options: u16,
-    pub colours: Vec<Colour, ColourN>,
+    pub colours: Vec<Colour>,
 }
 
 #[derive(Debug)]
-pub struct GraphicData<const DataN: usize> {
+pub struct GraphicData {
     pub id: ObjectId,
     pub format: u8,
-    pub data: [u8; DataN],
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug)]
-pub struct ScalesGraphic<const MacroRefN: usize> {
+pub struct ScalesGraphic {
     pub id: ObjectId,
     pub width: u16,
     pub height: u16,
     pub scale_type: u8,
     pub options: u8,
     pub value: u16,
-    pub macro_refs: Vec<MacroRef, MacroRefN>,
+    pub macro_refs: Vec<MacroRef>,
 }
 
 // TODO; Implement language pairs
@@ -2550,5 +2550,5 @@ pub struct WorkingSetSpecialControls {
     pub id: ObjectId,
     pub id_of_colour_map: ObjectId,
     pub id_of_colour_palette: ObjectId,
-    // pub language_pairs: Vec<(String, String)>,
+    pub language_pairs: Vec<(String, String)>,
 }

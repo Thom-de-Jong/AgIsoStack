@@ -3,8 +3,6 @@ use crate::{drivers::CanDriverTrait, isobus::IsobusAddress};
 
 use super::{TpAbortReasons, PDU, PGN};
 
-use heapless::Deque;
-
 const BACKLOG_SIZE: usize = 8;
 
 const TP_TIMEOUT_T1: u64 = 750;

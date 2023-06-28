@@ -10,6 +10,14 @@ use agisostack::{
     virtual_terminal_client::*, CanNetworkManager,
 };
 
+
+const ALARM_SOFT_KEY: u16 = 5000; //0x1388
+const ACKNOWLEDGE_ALARM_SOFT_KEY: u16 = 5001; //0x1389
+const PLUS_BUTTON: u16 = 6000; //0x1770
+const MINUS_BUTTON: u16 = 6001; //0x1771
+const BUTTON_EXAMPLE_NUMBER_VAR_NUM: u16 = 21000; //0x5208
+
+
 fn main() {
     // Setup the logging interface.
     env_logger::builder()
@@ -44,7 +52,7 @@ fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
             let _ = tx.send(frame);
         }
         if let Ok(frame) = rx.try_recv() {
-            can_driver.write(&frame);
+            let _ = can_driver.write(&frame);
         }
     }
 
@@ -54,10 +62,11 @@ fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     
     // Create a new mannager for the CAN network we are connecting to.
-    let network_manager: CanNetworkManager = CanNetworkManager::new();
+    let mut network_manager: CanNetworkManager = CanNetworkManager::new();
 
     // Bind a callback to the network manager to be called when we send a can frame.
-    network_manager.send_can_frame_callback(|f| { let _ = tx.send(f); });
+    let mut binding = |f| { let _ = tx.send(f); };
+    network_manager.send_can_frame_callback(&mut binding);
 
 
 
@@ -99,18 +108,21 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     // Create the channel used to send VTKeyEvents from the callback to this task.
     // event_tx and event_rx have to outlive test_virtual_terminal_client, so we define them first.
-    let (event_tx, event_rx): (Sender<VTKeyEvent>, Receiver<VTKeyEvent>) = mpsc::channel();
+    let (event_tx, event_rx): (Sender<VTKeyEvent>, Receiver<VTKeyEvent>) = channel();
 
     // Create a new Virtual Terminal Client (VTC), the main struct used to comunicate with a Virtual Terminal.
-    let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
+    let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu, &network_manager);
     
     // Set the Object pool to be used by our VTC.
     // A VTC can use multiple Object pools, we store our pool at the first pool index (0). 
     test_virtual_terminal_client.set_object_pool(0, VTVersion::Version3, &test_pool);
 
     // Bind callbacks to VTC events.
-    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&mut |event: VTKeyEvent| { handle_vt_key_events(event, event_tx.clone()) });
-    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&mut |event: VTKeyEvent| { handle_vt_key_events(event, event_tx.clone()) });
+    // These callbacks will provide us with event driven notifications of button presses from the stack.
+    // Using a channel we can send events to the isobus_task to be processed.
+    let callback = |event: VTKeyEvent| { let _ = event_tx.clone().send(event); };
+    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&callback);
+    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&callback);
 
     // Initialize the VTC.
     test_virtual_terminal_client.initialize();
@@ -121,7 +133,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     loop {
         // Receive a CanFrame without blocking
         if let Ok(frame) = rx.try_recv() {
-            network_manager.process_can_frame(frame);
+            network_manager.process_can_frame::<8>(frame);
             log::info!("{} reveived!", frame);
         }
 
@@ -133,7 +145,6 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
                         PLUS_BUTTON => {
                             example_number_output += 1;
                             test_virtual_terminal_client.send_change_numeric_value(BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
-                            tx.send(t)
                         },
                         MINUS_BUTTON => {
                             example_number_output -= 1;
@@ -146,10 +157,10 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
                             // TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, mainRunscreen_DataMask);
                         },
                         _ => {},
-                    }
+                    };
                 },
                 _ => {},
-            }
+            };
         }
 
         // Update the VirtualTerminalClient
@@ -158,17 +169,4 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     
     // TestVirtualTerminalClient->terminate();
     // isobus::CANHardwareInterface::stop();
-}
-
-
-const ALARM_SOFT_KEY: u16 = 5000; //0x1388
-const ACKNOWLEDGE_ALARM_SOFT_KEY: u16 = 5001; //0x1389
-const PLUS_BUTTON: u16 = 6000; //0x1770
-const MINUS_BUTTON: u16 = 6001; //0x1771
-const BUTTON_EXAMPLE_NUMBER_VAR_NUM: u16 = 21000; //0x5208
-
-// This callback will provide us with event driven notifications of button presses from the stack.
-// Using a channel we can send events to the isobus_task to be processed.
-fn handle_vt_key_events(event: VTKeyEvent, tx: Sender<VTKeyEvent>) {
-    let _ = tx.send(event.clone());
 }

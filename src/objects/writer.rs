@@ -676,6 +676,6 @@ impl Object {
     }
     fn write_name(data: &mut Vec<u8>, val: impl Into<Name>) {
         let val: Name = val.into();
-        data.extend(val.as_vec());
+        data.extend::<[u8; 8]>(val.into());
     }
 }

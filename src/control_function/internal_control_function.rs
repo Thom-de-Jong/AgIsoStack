@@ -3,8 +3,6 @@ use crate::{Address, name::Name};
 
 use super::AddressClaimStateMachine;
 
-static INTERNAL_CONTROL_FUNCTION_LIST: heapless::Vec<InternalControlFunction, 2> = heapless::Vec::new();
-
 /// Lets the network manager know if any ICF changed address since the last update.
 static ANY_CHANGED_ADDRESS: bool = false;
 

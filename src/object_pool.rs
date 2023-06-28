@@ -1,11 +1,12 @@
 
+use alloc::collections::VecDeque;
+
 use crate::objects::*;
 
-use heapless::Deque;
 
 #[derive(Debug)]
 pub struct ObjectPool<const N: usize> {
-    objects: Deque<Object, N>,
+    objects: VecDeque<Object>,
     colour_map: [u8; 256],
     colour_palette: [Colour; 256],
 
@@ -21,7 +22,7 @@ impl<const N: usize> ObjectPool<N> {
         }
 
         ObjectPool {
-            objects: Deque::new(),
+            objects: VecDeque::new(),
             colour_map,
             colour_palette: Colour::COLOUR_PALETTE,
 
