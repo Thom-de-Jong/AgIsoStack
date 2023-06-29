@@ -101,7 +101,6 @@ pub struct AddressClaimStateMachine {
 	name: Name, //< The ISO NAME to claim as
 	current_state: State, //< The address claim state machine state
 // 	std::uint32_t m_timestamp_ms = 0; ///< A generic timestamp in milliseconds used to find timeouts
-    can_port: u8, //< The CAN channel index to claim on
 // 	std::uint8_t m_preferredAddress; ///< The address we'd prefer to claim as (we may not get it)
 	random_claim_delay: Duration, //< The random delay as required by the ISO11783 standard
     claimed_address: Address, //< The actual address we ended up claiming
@@ -113,7 +112,7 @@ impl AddressClaimStateMachine {
 	/// @param[in] preferredAddressValue The address you prefer to claim
 	/// @param[in] ControlFunctionNAME The NAME you want to claim
 	/// @param[in] portIndex The CAN channel index to claim on
-	pub fn new(desired_name: Name, preferred_address: Address, can_port: u8) -> Option<AddressClaimStateMachine> {
+	pub fn new(desired_name: Name, preferred_address: Address) -> Option<AddressClaimStateMachine> {
         if preferred_address == Address::GLOBAL || preferred_address == Address::NULL { //|| port_index >= CAN_PORT_MAXIMUM {
             return None;
         }
@@ -127,15 +126,10 @@ impl AddressClaimStateMachine {
         Some(AddressClaimStateMachine {
             name: desired_name,
             current_state: State::default(),
-            can_port,
             claimed_address: Address::default(),
             random_claim_delay,
             is_enabled: false,
         })
-    }
-
-	pub fn can_port(&self) -> u8 {
-        self.can_port
     }
     
     pub fn name(&self) -> Name {

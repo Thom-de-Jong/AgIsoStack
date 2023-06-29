@@ -19,38 +19,29 @@ pub enum ControlFunction {
 }
 
 impl ControlFunction {
-    pub fn new_internal_control_function(desired_name: Name, preferred_address: Address, can_port: u8) -> Option<InternalControlFunction> {
-        let state_machine = AddressClaimStateMachine::new(desired_name, preferred_address, can_port);
-
-        if let Some(state_machine) = state_machine {
-            Some(InternalControlFunction {
-                object_changed_address_since_last_update: false,
-                state_machine,
-            })
-        } else {
-            None
-        }
-    }
-    // pub fn new_external_control_function(desired_name: Name, prefered_address: Address, can_port: u8) -> ControlFunction {
-    //     ControlFunction::Partnered(PartneredControlFunction( {
-    //         // address: todo!(),
-    //         // can_port: todo!(),
-    //         // name: todo!(),
-    //         // object_changed_address_since_last_update: false,
-    //     }))
+    // pub fn new_internal_control_function(desired_name: Name, preferred_address: Address, ) -> Option<InternalControlFunction> {
+        
     // }
+    // // pub fn new_external_control_function(desired_name: Name, prefered_address: Address, can_port: u8) -> ControlFunction {
+    // //     ControlFunction::Partnered(PartneredControlFunction( {
+    // //         // address: todo!(),
+    // //         // can_port: todo!(),
+    // //         // name: todo!(),
+    // //         // object_changed_address_since_last_update: false,
+    // //     }))
+    // // }
 
-    pub fn new_partnered_control_function(_: u8, _filters: &[NameFilter]) -> Option<PartneredControlFunction> {
-        Some(PartneredControlFunction(
-            ExternalControlFunction
-            {
-                address: Address::GLOBAL,
-                can_port: 0,
-                name: Name::default(),
-                object_changed_address_since_last_update: false,
-            }
-        ))
-    }
+    // pub fn new_partnered_control_function(_: u8, _filters: &[NameFilter]) -> Option<PartneredControlFunction> {
+    //     Some(PartneredControlFunction(
+    //         ExternalControlFunction
+    //         {
+    //             address: Address::GLOBAL,
+    //             can_port: 0,
+    //             name: Name::default(),
+    //             object_changed_address_since_last_update: false,
+    //         }
+    //     ))
+    // }
 
     pub fn address(&self) -> Address {
         match self {

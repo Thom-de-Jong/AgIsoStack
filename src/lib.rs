@@ -14,7 +14,6 @@ pub use can_frame::CanFrame;
 // Re-export low level Isobus types
 mod can_message;
 pub use can_message::CanMessage;
-pub use can_message::CanMessageTrait;
 pub mod name;
 pub mod control_function;
 mod parameter_group_numbers;

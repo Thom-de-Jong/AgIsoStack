@@ -65,8 +65,8 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     let mut network_manager: CanNetworkManager = CanNetworkManager::new();
 
     // Bind a callback to the network manager to be called when we send a can frame.
-    let mut binding = |f| { let _ = tx.send(f); };
-    network_manager.send_can_frame_callback(&mut binding);
+    // This is the "glue" between the network manager and the CAN Driver.
+    network_manager.send_can_frame_callback(|f| { let _ = tx.send(f); });
 
 
 
@@ -103,7 +103,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     let vt_name_filters = vec![filter_virtual_terminal];
     
     // TODO: Replace .unwrap()
-    let test_internal_ecu = ControlFunction::new_internal_control_function(test_device_name, test_device_address, 0).unwrap();
+    let test_internal_ecu = InternalControlFunction::new(test_device_name, test_device_address, &mut network_manager).unwrap();
     let test_partner_vt = ControlFunction::new_partnered_control_function(0, &vt_name_filters).unwrap();
 
     // Create the channel used to send VTKeyEvents from the callback to this task.
@@ -111,7 +111,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     let (event_tx, event_rx): (Sender<VTKeyEvent>, Receiver<VTKeyEvent>) = channel();
 
     // Create a new Virtual Terminal Client (VTC), the main struct used to comunicate with a Virtual Terminal.
-    let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu, &network_manager);
+    let mut test_virtual_terminal_client = VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
     
     // Set the Object pool to be used by our VTC.
     // A VTC can use multiple Object pools, we store our pool at the first pool index (0). 
@@ -120,12 +120,11 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // Bind callbacks to VTC events.
     // These callbacks will provide us with event driven notifications of button presses from the stack.
     // Using a channel we can send events to the isobus_task to be processed.
-    let callback = |event: VTKeyEvent| { let _ = event_tx.clone().send(event); };
-    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&callback);
-    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&callback);
+    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(|e| { let _ = event_tx.clone().send(e); });
+    let _ = test_virtual_terminal_client.add_vt_button_event_listener(|e| { let _ = event_tx.clone().send(e); });
 
     // Initialize the VTC.
-    test_virtual_terminal_client.initialize();
+    test_virtual_terminal_client.initialize(&mut network_manager);
 
     // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
     let mut example_number_output: u32 = 214748364;
@@ -133,8 +132,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     loop {
         // Receive a CanFrame without blocking
         if let Ok(frame) = rx.try_recv() {
-            network_manager.process_can_frame::<8>(frame);
-            log::info!("{} reveived!", frame);
+            network_manager.process_can_frame(frame);
         }
 
         // Receive VTKeyEvents without blocking

@@ -1,9 +1,9 @@
 
-use alloc::vec::Vec;
+use alloc::{vec::Vec, collections::BTreeMap};
 
 use crate::{
     control_function::{ControlFunction, InternalControlFunction},
-    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, can_message, CanMessage, CanMessageTrait,
+    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, can_message::{self, CanMessageProcessor}, CanMessage,
     // transport_protocol_manager::TransportProtocolManager
 };
 
@@ -18,14 +18,14 @@ pub struct CanNetworkManager<'a> {
     // etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
 	// fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
 
-    control_functions: RefCell<Vec<&'a InternalControlFunction>>,
+    control_functions: Vec<RefCell<&'a dyn CanMessageProcessor>>,
 
     send_can_frame_buffer: Vec<CanFrame>,
-    send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
+    send_can_frame_callback: Option<fn(CanFrame)>,
 
-    can_message_to_send: Option<&'a dyn CanMessageTrait>,
+    can_message_to_send: Option<CanMessage>,
     
-	// global_parameter_group_number_callbacks: FnvIndexMap<u16, &'a dyn Fn(&'a CanMessage), GLOBAL_PARAMETER_GROUP_NUMBER_CALLBACK_LIST_SIZE>,
+	global_parameter_group_number_callbacks: BTreeMap<u16, fn(CanMessage)>,
 }
 
 impl<'a> CanNetworkManager<'a> {
@@ -33,13 +33,13 @@ impl<'a> CanNetworkManager<'a> {
         CanNetworkManager {
             // tp_manager: TransportProtocolManager::new(),
 
-            control_functions: RefCell::new(Vec::new()),
+            control_functions: Vec::new(),
 
             send_can_frame_buffer: Vec::new(),
             send_can_frame_callback: None,
 
             can_message_to_send: None,
-			// global_parameter_group_number_callbacks: FnvIndexMap::new(),
+			global_parameter_group_number_callbacks: BTreeMap::new(),
         }
     }
 
@@ -48,7 +48,7 @@ impl<'a> CanNetworkManager<'a> {
     }
 
     // pub fn send_can_message(&self, pgn: ParameterGroupNumber, data: &[u8], src: &InternalControlFunction, dest: &PartneredControlFunction, priority: CanPriority) {
-    pub fn send_can_message(&self, message: &'a dyn CanMessageTrait) {
+    pub fn send_can_message(&self, message: CanMessage) {
             // TODO: Build id
         let id = ExtendedId::MAX;
 
@@ -76,14 +76,14 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn process_can_message(&self, frame: & dyn CanMessageTrait) {
+    pub fn process_can_message(&self, message: CanMessage) {
         // Log all CAN traffic on the bus.
         #[cfg(feature = "log_all_can_read")]
         log::debug!("Read: {:?}", &frame);
 
         // Only listen to global messages and messages ment for us.
         let cfs = self.control_functions.borrow();
-        if !frame.is_address_global() && !cfs.iter().any(|&c| { frame.is_address_specific(c.address()) }) {
+        if !message.is_address_global() && !cfs.iter().any(|&c| { message.is_address_specific(c.address()) }) {
             return;
         }
 
@@ -115,24 +115,26 @@ impl<'a> CanNetworkManager<'a> {
 		// }
 	}
 
-    pub fn process_can_frame<const N: usize>(&self, frame: CanFrame) -> Option<CanMessage<N>> {
+    pub fn process_can_frame(&mut self, frame: CanFrame) {
         // Check if TP or ETP message
         // Give it to the handlers
 
-        Some(CanMessage::new(frame.id(), frame.data()))
+        let message = Some(CanMessage::new(frame.id(), frame.data()));
+
+        // If a message is complete
+        if let Some(message) = message {
+            self.process_can_message(message);
+        }
     }
 
-    pub fn send_can_frame_callback(&mut self, callback: &'a dyn Fn(CanFrame)) {
+    pub fn send_can_frame_callback(&mut self, callback: fn(CanFrame)) {
         self.send_can_frame_callback = Some(callback);
     }
 
     
-	// pub fn add_global_parameter_group_number_callback<const N: usize>(&mut self, pgn: ParameterGroupNumber, callback: &'a dyn Fn(&'a CanMessage<N>)) -> Result<(), ()> {
-	//     match self.global_parameter_group_number_callbacks.insert(pgn as u16, callback) {
-    //         Ok(_) => Ok(()),
-    //         Err(_) => Err(()),
-    //     }
-	// }
+	pub fn add_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber, callback: fn(CanMessage)) {
+	    self.global_parameter_group_number_callbacks.insert(pgn as u16, callback) ;
+	}
 
     // pub fn remove_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber) {
 	// 	let _ = self.global_parameter_group_number_callbacks.remove(&(pgn as u16));

@@ -1,5 +1,7 @@
 
-use crate::{Address, name::Name};
+use core::cell::RefCell;
+
+use crate::{Address, name::Name, CanNetworkManager};
 
 use super::AddressClaimStateMachine;
 
@@ -8,17 +10,33 @@ static ANY_CHANGED_ADDRESS: bool = false;
 
 // TODO: make fields private
 pub struct InternalControlFunction {
-    pub object_changed_address_since_last_update: bool,
-    pub state_machine: AddressClaimStateMachine,
+    // network_manager: &'a mut CanNetworkManager<'a>,
+
+    object_changed_address_since_last_update: bool,
+    state_machine: AddressClaimStateMachine,
 }
 
 impl InternalControlFunction {
+    pub fn new(desired_name: Name, preferred_address: Address, network_manager: &mut CanNetworkManager) -> Option<InternalControlFunction> {
+        let state_machine = AddressClaimStateMachine::new(desired_name, preferred_address);
+
+        if let Some(state_machine) = state_machine {
+            let icf = InternalControlFunction {
+                // network_manager,
+                object_changed_address_since_last_update: false,
+                state_machine,
+            };
+
+            // network_manager.add_global_parameter_group_number_callback(Pa, callback)
+
+            Some(icf)
+        } else {
+            None
+        }
+    }
+
     pub fn address(&self) -> Address {
         self.state_machine.claimed_address()
-    }
-    
-    pub fn can_port(&self) -> u8 {
-        self.state_machine.can_port()
     }
     
     pub fn name(&self) -> Name {
@@ -101,22 +119,6 @@ impl InternalControlFunction {
         //     self.object_changed_address_since_last_update = true;
 		// }
 	}
-}
-
-impl Drop for InternalControlFunction {
-    fn drop(&mut self) {
-        // const std::lock_guard<std::mutex> lock(ControlFunction::controlFunctionProcessingMutex);
-
-		// if (!internalControlFunctionList.empty())
-		// {
-		// 	auto thisObject = std::find(internalControlFunctionList.begin(), internalControlFunctionList.end(), this);
-
-		// 	if (internalControlFunctionList.end() != thisObject)
-		// 	{
-		// 		*thisObject = nullptr; // Don't erase, just null it out. Erase could cause a double free.
-		// 	}
-		// }
-    }
 }
 
 

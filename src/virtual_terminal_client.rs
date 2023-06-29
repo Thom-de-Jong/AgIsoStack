@@ -1,76 +1,59 @@
 
+use alloc::{collections::BTreeMap, boxed::Box, rc::Rc};
+
 use crate::{control_function::*, CanNetworkManager, CanPriority, ParameterGroupNumber, CanMessage};
 
-const VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE: usize = 4;
-const VT_BUTTON_EVENT_CALLBACK_LIST_SIZE: usize = 4;
-const VT_POINTING_EVENT_CALLBACK_LIST_SIZE: usize = 4;
-const VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE: usize = 4;
-const VT_ESC_MESSAGE_CALLBACK_LIST_SIZE: usize = 4;
-const VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE: usize = 4;
-const VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE: usize = 4;
-const VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE: usize = 4;
-const VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE: usize = 4;
-const VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE: usize = 4;
-const VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE: usize = 4;
-const AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE: usize = 4;
-
-pub struct VirtualTerminalClient<'a> {
-	network_manager: &'a CanNetworkManager<'a>,
-
+pub struct VirtualTerminalClient {
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
     internal_control_function: InternalControlFunction, //< The internal control function the client uses to send from
 
 	is_initialized: bool,
 
-	soft_key_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE>,
-	button_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_BUTTON_EVENT_CALLBACK_LIST_SIZE>,
-	pointing_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTPointingEvent), VT_POINTING_EVENT_CALLBACK_LIST_SIZE>,
-	select_input_object_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTSelectInputObjectEvent), VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE>,
-	esc_message_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTESCMessageEvent), VT_ESC_MESSAGE_CALLBACK_LIST_SIZE>,
-	change_numeric_value_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeNumericValueEvent), VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE>,
-	change_active_mask_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeActiveMaskEvent), VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE>,
-	change_soft_key_mask_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeSoftKeyMaskEvent), VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE>,
-	change_string_value_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeStringValueEvent), VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE>,
-	user_layout_hide_show_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTUserLayoutHideShowEvent), VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE>,
-	audio_signal_termination_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTAudioSignalTerminationEvent), VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE>,
-	auxiliary_function_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(AuxiliaryFunctionEvent), AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE>,
+	soft_key_event_callbacks: BTreeMap<usize, fn(VTKeyEvent)>,
+	button_event_callbacks: BTreeMap<usize, fn(VTKeyEvent)>,
+	pointing_event_callbacks: BTreeMap<usize, fn(VTPointingEvent)>,
+	select_input_object_event_callbacks: BTreeMap<usize, fn(VTSelectInputObjectEvent)>,
+	esc_message_event_callbacks: BTreeMap<usize, fn(VTESCMessageEvent)>,
+	change_numeric_value_event_callbacks: BTreeMap<usize, fn(VTChangeNumericValueEvent)>,
+	change_active_mask_event_callbacks: BTreeMap<usize, fn(VTChangeActiveMaskEvent)>,
+	change_soft_key_mask_event_callbacks: BTreeMap<usize, fn(VTChangeSoftKeyMaskEvent)>,
+	change_string_value_event_callbacks: BTreeMap<usize, fn(VTChangeStringValueEvent)>,
+	user_layout_hide_show_event_callbacks: BTreeMap<usize, fn(VTUserLayoutHideShowEvent)>,
+	audio_signal_termination_event_callbacks: BTreeMap<usize, fn(VTAudioSignalTerminationEvent)>,
+	auxiliary_function_event_callbacks: BTreeMap<usize, fn(AuxiliaryFunctionEvent)>,
 }
 
-impl<'a> VirtualTerminalClient<'a> {
-    pub fn new(partner: PartneredControlFunction, client: InternalControlFunction, network_manager: &'a CanNetworkManager<'a>) -> VirtualTerminalClient<'a> {
+impl VirtualTerminalClient {
+    pub fn new(partner: PartneredControlFunction, client: InternalControlFunction) -> VirtualTerminalClient {
 		let vtc = VirtualTerminalClient {
-			network_manager,
             partnered_control_function: partner,
             internal_control_function: client,
 			is_initialized: false,
-			soft_key_event_callbacks: FnvIndexMap::new(),
-			button_event_callbacks: FnvIndexMap::new(),
-            pointing_event_callbacks: FnvIndexMap::new(),
-            select_input_object_event_callbacks: FnvIndexMap::new(),
-            esc_message_event_callbacks: FnvIndexMap::new(),
-            change_numeric_value_event_callbacks: FnvIndexMap::new(),
-            change_active_mask_event_callbacks: FnvIndexMap::new(),
-            change_soft_key_mask_event_callbacks: FnvIndexMap::new(),
-            change_string_value_event_callbacks: FnvIndexMap::new(),
-            user_layout_hide_show_event_callbacks: FnvIndexMap::new(),
-            audio_signal_termination_event_callbacks: FnvIndexMap::new(),
-            auxiliary_function_event_callbacks: FnvIndexMap::new(),
+			soft_key_event_callbacks: BTreeMap::new(),
+			button_event_callbacks: BTreeMap::new(),
+            pointing_event_callbacks: BTreeMap::new(),
+            select_input_object_event_callbacks: BTreeMap::new(),
+            esc_message_event_callbacks: BTreeMap::new(),
+            change_numeric_value_event_callbacks: BTreeMap::new(),
+            change_active_mask_event_callbacks: BTreeMap::new(),
+            change_soft_key_mask_event_callbacks: BTreeMap::new(),
+            change_string_value_event_callbacks: BTreeMap::new(),
+            user_layout_hide_show_event_callbacks: BTreeMap::new(),
+            audio_signal_termination_event_callbacks: BTreeMap::new(),
+            auxiliary_function_event_callbacks: BTreeMap::new(),
         };
-
-        network_manager.add_control_function(&vtc.internal_control_function);
-
 		vtc
     }
 
-	pub fn initialize(&mut self) {
+	pub fn initialize(&mut self, network_manager: &mut CanNetworkManager) {
 
 		// // Bind the callbacks to CAN messages used by the Virtual Termainal Client
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::Acknowledge), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal), process_rx_message, this);
-		// self.network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, |m| { &self.process_can_message(m) });
-		// self.network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, |m| { &self.process_can_message(m) });
+		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, |m| { &mut self.process_can_message(m) });
+		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, |m| { &mut self.process_can_message(m) });
 
 		// if (!languageCommandInterface.get_initialized()) {
 		// 	languageCommandInterface.initialize();
@@ -106,10 +89,10 @@ impl<'a> VirtualTerminalClient<'a> {
 		log::info!("[VT]: VT Client connection has been terminated.");
 	}
 
-	pub fn restart_communication(&mut self) {
+	pub fn restart_communication(&mut self, network_manager: &mut CanNetworkManager) {
 		log::info!("[VT]:VT Client connection restart requested. Client will now terminate and reinitialize.");
 		self.terminate();
-		self.initialize();
+		self.initialize(network_manager);
 	}
 
 
@@ -145,12 +128,12 @@ impl<'a> VirtualTerminalClient<'a> {
 	}
 
 
-	pub fn add_vt_soft_key_event_listener(&mut self, callback: &'a dyn Fn(VTKeyEvent)) -> Result<usize, ()> {
+	pub fn add_vt_soft_key_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.soft_key_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_soft_key_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -159,12 +142,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 	
-	pub fn add_vt_button_event_listener(&mut self, callback: &'a dyn Fn(VTKeyEvent)) -> Result<usize, ()> {
+	pub fn add_vt_button_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.button_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_button_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -173,12 +156,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_pointing_event_listener(&mut self, callback: &'a dyn Fn(VTPointingEvent)) -> Result<usize, ()> {
+	pub fn add_vt_pointing_event_listener(&mut self, callback: fn(VTPointingEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.pointing_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_pointing_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -187,12 +170,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_select_input_object_event_listener(&mut self, callback: &'a dyn Fn(VTSelectInputObjectEvent)) -> Result<usize, ()> {
+	pub fn add_vt_select_input_object_event_listener(&mut self, callback: fn(VTSelectInputObjectEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.select_input_object_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_select_input_object_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -201,12 +184,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_esc_message_event_listener(&mut self, callback: &'a dyn Fn(VTESCMessageEvent)) -> Result<usize, ()> {
+	pub fn add_vt_esc_message_event_listener(&mut self, callback: fn(VTESCMessageEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.esc_message_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_esc_message_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -215,12 +198,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_change_numeric_value_event_listener(&mut self, callback: &'a dyn Fn(VTChangeNumericValueEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_numeric_value_event_listener(&mut self, callback: fn(VTChangeNumericValueEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_numeric_value_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_change_numeric_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -229,12 +212,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_change_active_mask_event_listener(&mut self, callback: &'a dyn Fn(VTChangeActiveMaskEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_active_mask_event_listener(&mut self, callback: fn(VTChangeActiveMaskEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_active_mask_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_change_active_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -243,12 +226,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_change_soft_key_mask_event_listener(&mut self, callback: &'a dyn Fn(VTChangeSoftKeyMaskEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_soft_key_mask_event_listener(&mut self, callback: fn(VTChangeSoftKeyMaskEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_soft_key_mask_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_change_soft_key_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -257,12 +240,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_change_string_value_event_listener(&mut self, callback: &'a dyn Fn(VTChangeStringValueEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_string_value_event_listener(&mut self, callback: fn(VTChangeStringValueEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_string_value_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_change_string_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -271,12 +254,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_user_layout_hide_show_event_listener(&mut self, callback: &'a dyn Fn(VTUserLayoutHideShowEvent)) -> Result<usize, ()> {
+	pub fn add_vt_user_layout_hide_show_event_listener(&mut self, callback: fn(VTUserLayoutHideShowEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.user_layout_hide_show_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_user_layout_hide_show_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -285,12 +268,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_vt_audio_signal_termination_event_listener(&mut self, callback: &'a dyn Fn(VTAudioSignalTerminationEvent)) -> Result<usize, ()> {
+	pub fn add_vt_audio_signal_termination_event_listener(&mut self, callback: fn(VTAudioSignalTerminationEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.audio_signal_termination_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("vt_audio_signal_termination_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -299,12 +282,12 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn add_auxiliary_function_event_listener(&mut self, callback: &'a dyn Fn(AuxiliaryFunctionEvent)) -> Result<usize, ()> {
+	pub fn add_auxiliary_function_event_listener(&mut self, callback: fn(AuxiliaryFunctionEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.auxiliary_function_event_callbacks.insert(key, callback);
-		if let Ok(_) = val {
+		if let Some(_) = val {
 			log::debug!("auxiliary_function_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -817,7 +800,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		// }
     }
 
-	pub fn process_can_message<const N: usize>(&mut self, message: &CanMessage<N>) {
+	pub fn process_can_message(&mut self, message: CanMessage) {
 		// match message.id().parameter_group_number() {
 		// 	ParameterGroupNumber::Acknowledge => {
 		// 		// if AcknowledgementType::Negative == message.get_uint8_at(0) {
@@ -1622,7 +1605,7 @@ impl<'a> VirtualTerminalClient<'a> {
 
 }
 
-impl Drop for VirtualTerminalClient<'_> {
+impl Drop for VirtualTerminalClient {
     fn drop(&mut self) {
         self.terminate();
     }
