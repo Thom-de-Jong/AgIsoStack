@@ -24,9 +24,9 @@ pub mod hardware_integration;
 
 // TODO: Decide if object pool manipulation is needed in de base library
 // Should it work in no_std?
-mod objects;
-pub mod object_pool;
-pub use objects::ObjectId;
+// mod objects;
+// pub mod object_pool;
+// pub use objects::ObjectId;
 
 
 pub mod virtual_terminal_client;

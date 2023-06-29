@@ -56,13 +56,13 @@ impl ControlFunction {
         (address != Address::GLOBAL) && (address != Address::NULL)
     }
     
-    pub fn can_port(&self) -> u8 {
-        match self {
-            ControlFunction::Internal(cf) => cf.can_port(),
-            ControlFunction::External(cf) => cf.can_port(),
-            ControlFunction::Partnered(cf) => cf.0.can_port(),
-        }
-    }
+    // pub fn can_port(&self) -> u8 {
+    //     match self {
+    //         ControlFunction::Internal(cf) => cf.can_port(),
+    //         ControlFunction::External(cf) => cf.can_port(),
+    //         ControlFunction::Partnered(cf) => cf.0.can_port(),
+    //     }
+    // }
     
     pub fn name(&self) -> Name {
         match self {

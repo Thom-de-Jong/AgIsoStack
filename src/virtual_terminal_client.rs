@@ -52,8 +52,8 @@ impl VirtualTerminalClient {
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::Acknowledge), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal), process_rx_message, this);
-		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, |m| { &mut self.process_can_message(m) });
-		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, |m| { &mut self.process_can_message(m) });
+		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, & |m| { self.process_can_message(m) });
+		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, & |m| { self.process_can_message(m) });
 
 		// if (!languageCommandInterface.get_initialized()) {
 		// 	languageCommandInterface.initialize();
@@ -800,7 +800,7 @@ impl VirtualTerminalClient {
 		// }
     }
 
-	pub fn process_can_message(&mut self, message: CanMessage) {
+	pub fn process_can_message(&mut self, message: &CanMessage) {
 		// match message.id().parameter_group_number() {
 		// 	ParameterGroupNumber::Acknowledge => {
 		// 		// if AcknowledgementType::Negative == message.get_uint8_at(0) {

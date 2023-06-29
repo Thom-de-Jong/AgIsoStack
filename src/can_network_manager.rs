@@ -25,7 +25,7 @@ pub struct CanNetworkManager<'a> {
 
     can_message_to_send: Option<CanMessage>,
     
-	global_parameter_group_number_callbacks: BTreeMap<u16, fn(CanMessage)>,
+	global_parameter_group_number_callbacks: BTreeMap<u16, &'a dyn Fn(&CanMessage)>,
 }
 
 impl<'a> CanNetworkManager<'a> {
@@ -43,9 +43,9 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn add_control_function(&self, cf: &'a InternalControlFunction) {
-        let _ = self.control_functions.borrow_mut().push(cf);
-    }
+    // pub fn add_control_function(&self, cf: &'a InternalControlFunction) {
+    //     let _ = self.control_functions.borrow_mut().push(cf);
+    // }
 
     // pub fn send_can_message(&self, pgn: ParameterGroupNumber, data: &[u8], src: &InternalControlFunction, dest: &PartneredControlFunction, priority: CanPriority) {
     pub fn send_can_message(&self, message: CanMessage) {
@@ -76,16 +76,16 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn process_can_message(&self, message: CanMessage) {
+    pub fn process_can_message(&self, message: &CanMessage) {
         // Log all CAN traffic on the bus.
         #[cfg(feature = "log_all_can_read")]
         log::debug!("Read: {:?}", &frame);
 
         // Only listen to global messages and messages ment for us.
-        let cfs = self.control_functions.borrow();
-        if !message.is_address_global() && !cfs.iter().any(|&c| { message.is_address_specific(c.address()) }) {
-            return;
-        }
+        // let cfs = self.control_functions.borrow();
+        // if !message.is_address_global() && !cfs.iter().any(|&c| { message.is_address_specific(c.address()) }) {
+        //     return;
+        // }
 
         // Log only CAN traffic ment for us.
         // #[cfg(feature = "log_can_read")]
@@ -93,10 +93,10 @@ impl<'a> CanNetworkManager<'a> {
 
 
 
-        // check if global
-        // for (pgn, callback) in self.global_parameter_group_number_callbacks {
-        //     callback(frame);
-        // }
+        // Check if global
+        for (pgn, &callback) in &self.global_parameter_group_number_callbacks {
+            callback(message);
+        }
 
             
 
@@ -123,7 +123,7 @@ impl<'a> CanNetworkManager<'a> {
 
         // If a message is complete
         if let Some(message) = message {
-            self.process_can_message(message);
+            self.process_can_message(&message);
         }
     }
 
@@ -132,12 +132,12 @@ impl<'a> CanNetworkManager<'a> {
     }
 
     
-	pub fn add_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber, callback: fn(CanMessage)) {
+	pub fn add_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber, callback: &impl Fn(&CanMessage)) {
 	    self.global_parameter_group_number_callbacks.insert(pgn as u16, callback) ;
 	}
 
-    // pub fn remove_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber) {
-	// 	let _ = self.global_parameter_group_number_callbacks.remove(&(pgn as u16));
-	// }
+    pub fn remove_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber) {
+		let _ = self.global_parameter_group_number_callbacks.remove(&(pgn as u16));
+	}
 }
 
