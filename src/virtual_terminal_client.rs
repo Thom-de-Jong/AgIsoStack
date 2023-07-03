@@ -1,59 +1,75 @@
 
-use alloc::{collections::BTreeMap, boxed::Box, rc::Rc};
+use heapless::FnvIndexMap;
 
 use crate::{control_function::*, CanNetworkManager, CanPriority, ParameterGroupNumber, CanMessage};
 
-pub struct VirtualTerminalClient {
+const VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE: usize = 4;
+const VT_BUTTON_EVENT_CALLBACK_LIST_SIZE: usize = 4;
+const VT_POINTING_EVENT_CALLBACK_LIST_SIZE: usize = 4;
+const VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE: usize = 4;
+const VT_ESC_MESSAGE_CALLBACK_LIST_SIZE: usize = 4;
+const VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE: usize = 4;
+const VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE: usize = 4;
+const VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE: usize = 4;
+const VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE: usize = 4;
+const VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE: usize = 4;
+const VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE: usize = 4;
+const AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE: usize = 4;
+
+pub struct VirtualTerminalClient<'a> {
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
     internal_control_function: InternalControlFunction, //< The internal control function the client uses to send from
 
+    can_message_data_buffer: [u8; 8],
+
 	is_initialized: bool,
 
-	soft_key_event_callbacks: BTreeMap<usize, fn(VTKeyEvent)>,
-	button_event_callbacks: BTreeMap<usize, fn(VTKeyEvent)>,
-	pointing_event_callbacks: BTreeMap<usize, fn(VTPointingEvent)>,
-	select_input_object_event_callbacks: BTreeMap<usize, fn(VTSelectInputObjectEvent)>,
-	esc_message_event_callbacks: BTreeMap<usize, fn(VTESCMessageEvent)>,
-	change_numeric_value_event_callbacks: BTreeMap<usize, fn(VTChangeNumericValueEvent)>,
-	change_active_mask_event_callbacks: BTreeMap<usize, fn(VTChangeActiveMaskEvent)>,
-	change_soft_key_mask_event_callbacks: BTreeMap<usize, fn(VTChangeSoftKeyMaskEvent)>,
-	change_string_value_event_callbacks: BTreeMap<usize, fn(VTChangeStringValueEvent)>,
-	user_layout_hide_show_event_callbacks: BTreeMap<usize, fn(VTUserLayoutHideShowEvent)>,
-	audio_signal_termination_event_callbacks: BTreeMap<usize, fn(VTAudioSignalTerminationEvent)>,
-	auxiliary_function_event_callbacks: BTreeMap<usize, fn(AuxiliaryFunctionEvent)>,
+	soft_key_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE>,
+	button_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_BUTTON_EVENT_CALLBACK_LIST_SIZE>,
+	pointing_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTPointingEvent), VT_POINTING_EVENT_CALLBACK_LIST_SIZE>,
+	select_input_object_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTSelectInputObjectEvent), VT_SELECT_INPUT_OBJECT_CALLBACK_LIST_SIZE>,
+	esc_message_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTESCMessageEvent), VT_ESC_MESSAGE_CALLBACK_LIST_SIZE>,
+	change_numeric_value_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeNumericValueEvent), VT_CHANGE_NUMERIC_VALUE_CALLBACK_LIST_SIZE>,
+	change_active_mask_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeActiveMaskEvent), VT_CHANGE_ACTIVE_MASK_CALLBACK_LIST_SIZE>,
+	change_soft_key_mask_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeSoftKeyMaskEvent), VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE>,
+	change_string_value_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTChangeStringValueEvent), VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE>,
+	user_layout_hide_show_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTUserLayoutHideShowEvent), VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE>,
+	audio_signal_termination_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTAudioSignalTerminationEvent), VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE>,
+	auxiliary_function_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(AuxiliaryFunctionEvent), AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE>,
 }
 
-impl VirtualTerminalClient {
-    pub fn new(partner: PartneredControlFunction, client: InternalControlFunction) -> VirtualTerminalClient {
+impl<'a> VirtualTerminalClient<'a> {
+    pub fn new(partner: PartneredControlFunction, client: InternalControlFunction) -> VirtualTerminalClient<'static> {
 		let vtc = VirtualTerminalClient {
             partnered_control_function: partner,
             internal_control_function: client,
+    		can_message_data_buffer: [0; 8],
 			is_initialized: false,
-			soft_key_event_callbacks: BTreeMap::new(),
-			button_event_callbacks: BTreeMap::new(),
-            pointing_event_callbacks: BTreeMap::new(),
-            select_input_object_event_callbacks: BTreeMap::new(),
-            esc_message_event_callbacks: BTreeMap::new(),
-            change_numeric_value_event_callbacks: BTreeMap::new(),
-            change_active_mask_event_callbacks: BTreeMap::new(),
-            change_soft_key_mask_event_callbacks: BTreeMap::new(),
-            change_string_value_event_callbacks: BTreeMap::new(),
-            user_layout_hide_show_event_callbacks: BTreeMap::new(),
-            audio_signal_termination_event_callbacks: BTreeMap::new(),
-            auxiliary_function_event_callbacks: BTreeMap::new(),
+			soft_key_event_callbacks: FnvIndexMap::new(),
+			button_event_callbacks: FnvIndexMap::new(),
+            pointing_event_callbacks: FnvIndexMap::new(),
+            select_input_object_event_callbacks: FnvIndexMap::new(),
+            esc_message_event_callbacks: FnvIndexMap::new(),
+            change_numeric_value_event_callbacks: FnvIndexMap::new(),
+            change_active_mask_event_callbacks: FnvIndexMap::new(),
+            change_soft_key_mask_event_callbacks: FnvIndexMap::new(),
+            change_string_value_event_callbacks: FnvIndexMap::new(),
+            user_layout_hide_show_event_callbacks: FnvIndexMap::new(),
+            audio_signal_termination_event_callbacks: FnvIndexMap::new(),
+            auxiliary_function_event_callbacks: FnvIndexMap::new(),
         };
 		vtc
     }
 
-	pub fn initialize(&mut self, network_manager: &mut CanNetworkManager) {
+	pub fn initialize(&mut self) {
 
 		// // Bind the callbacks to CAN messages used by the Virtual Termainal Client
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::Acknowledge), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// CANNetworkManager::CANNetwork.add_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal), process_rx_message, this);
-		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, & |m| { self.process_can_message(m) });
-		network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, & |m| { self.process_can_message(m) });
+		// network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::VirtualTerminalToECU, & |m| { self.process_can_message(m) });
+		// network_manager.add_global_parameter_group_number_callback(ParameterGroupNumber::ECUtoVirtualTerminal, & |m| { self.process_can_message(m) });
 
 		// if (!languageCommandInterface.get_initialized()) {
 		// 	languageCommandInterface.initialize();
@@ -84,15 +100,15 @@ impl VirtualTerminalClient {
 		// CANNetworkManager::CANNetwork.remove_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal), process_rx_message, this);
 		
 		// shouldTerminate = true;
-		// self.set_state(StateMachineState::Disconnected);
+		self.set_state(StateMachineState::Disconnected);
 		self.is_initialized = false;
 		log::info!("[VT]: VT Client connection has been terminated.");
 	}
 
-	pub fn restart_communication(&mut self, network_manager: &mut CanNetworkManager) {
+	pub fn restart_communication(&mut self) {
 		log::info!("[VT]:VT Client connection restart requested. Client will now terminate and reinitialize.");
 		self.terminate();
-		self.initialize(network_manager);
+		self.initialize();
 	}
 
 
@@ -128,12 +144,12 @@ impl VirtualTerminalClient {
 	}
 
 
-	pub fn add_vt_soft_key_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
+	pub fn add_vt_soft_key_event_listener(&mut self, callback: &'a dyn Fn(VTKeyEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.soft_key_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_soft_key_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -142,12 +158,12 @@ impl VirtualTerminalClient {
 		}
 	}
 	
-	pub fn add_vt_button_event_listener(&mut self, callback: fn(VTKeyEvent)) -> Result<usize, ()> {
+	pub fn add_vt_button_event_listener(&mut self, callback: &'a dyn Fn(VTKeyEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.button_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_button_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -156,12 +172,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_pointing_event_listener(&mut self, callback: fn(VTPointingEvent)) -> Result<usize, ()> {
+	pub fn add_vt_pointing_event_listener(&mut self, callback: &'a dyn Fn(VTPointingEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.pointing_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_pointing_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -170,12 +186,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_select_input_object_event_listener(&mut self, callback: fn(VTSelectInputObjectEvent)) -> Result<usize, ()> {
+	pub fn add_vt_select_input_object_event_listener(&mut self, callback: &'a dyn Fn(VTSelectInputObjectEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.select_input_object_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_select_input_object_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -184,12 +200,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_esc_message_event_listener(&mut self, callback: fn(VTESCMessageEvent)) -> Result<usize, ()> {
+	pub fn add_vt_esc_message_event_listener(&mut self, callback: &'a dyn Fn(VTESCMessageEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.esc_message_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_esc_message_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -198,12 +214,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_change_numeric_value_event_listener(&mut self, callback: fn(VTChangeNumericValueEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_numeric_value_event_listener(&mut self, callback: &'a dyn Fn(VTChangeNumericValueEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_numeric_value_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_change_numeric_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -212,12 +228,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_change_active_mask_event_listener(&mut self, callback: fn(VTChangeActiveMaskEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_active_mask_event_listener(&mut self, callback: &'a dyn Fn(VTChangeActiveMaskEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_active_mask_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_change_active_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -226,12 +242,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_change_soft_key_mask_event_listener(&mut self, callback: fn(VTChangeSoftKeyMaskEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_soft_key_mask_event_listener(&mut self, callback: &'a dyn Fn(VTChangeSoftKeyMaskEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_soft_key_mask_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_change_soft_key_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -240,12 +256,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_change_string_value_event_listener(&mut self, callback: fn(VTChangeStringValueEvent)) -> Result<usize, ()> {
+	pub fn add_vt_change_string_value_event_listener(&mut self, callback: &'a dyn Fn(VTChangeStringValueEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.change_string_value_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_change_string_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -254,12 +270,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_user_layout_hide_show_event_listener(&mut self, callback: fn(VTUserLayoutHideShowEvent)) -> Result<usize, ()> {
+	pub fn add_vt_user_layout_hide_show_event_listener(&mut self, callback: &'a dyn Fn(VTUserLayoutHideShowEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.user_layout_hide_show_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_user_layout_hide_show_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -268,12 +284,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_vt_audio_signal_termination_event_listener(&mut self, callback: fn(VTAudioSignalTerminationEvent)) -> Result<usize, ()> {
+	pub fn add_vt_audio_signal_termination_event_listener(&mut self, callback: &'a dyn Fn(VTAudioSignalTerminationEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.audio_signal_termination_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("vt_audio_signal_termination_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -282,12 +298,12 @@ impl VirtualTerminalClient {
 		}
 	}
 
-	pub fn add_auxiliary_function_event_listener(&mut self, callback: fn(AuxiliaryFunctionEvent)) -> Result<usize, ()> {
+	pub fn add_auxiliary_function_event_listener(&mut self, callback: &'a dyn Fn(AuxiliaryFunctionEvent)) -> Result<usize, ()> {
 		// Generate a key based on raw address (extreamly unsafe)
 		let key: usize = unsafe { core::mem::transmute(&callback) };
 
 		let val = self.auxiliary_function_event_callbacks.insert(key, callback);
-		if let Some(_) = val {
+		if let Ok(_) = val {
 			log::debug!("auxiliary_function_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
@@ -345,9 +361,9 @@ impl VirtualTerminalClient {
 	}
 	
 
-	pub fn send_change_numeric_value(&mut self, object_id: u16, value: u32) {
-		let buffer: [u8; 8] = [
-			Function::ChangeNumericValueCommand as u8,
+	pub fn send_change_numeric_value(&mut self, network_manager: &CanNetworkManager, object_id: u16, value: u32) {
+		self.can_message_data_buffer = [
+			VTFunction::ChangeNumericValueCommand as u8,
 			object_id as u8,
 			(object_id >> 8) as u8,
 			0xFF,
@@ -356,28 +372,27 @@ impl VirtualTerminalClient {
 			((value >> 16) & 0xFF) as u8,
 			((value >> 24) & 0xFF) as u8,
 		];
-		// let message = CanMessage::new();
-		// self.network_manager.send_can_message(
-		// 	ParameterGroupNumber::ECUtoVirtualTerminal,
-		// 	&buffer,
-		// 	&self.internal_control_function,
-		// 	&self.partnered_control_function,
-		// 	CanPriority::PriorityLowest7,
-		// )
+
+		let message = CanMessage::new(
+			CanPriority::PriorityLowest7,
+			ParameterGroupNumber::ECUtoVirtualTerminal,
+			self.internal_control_function.address(),
+			self.partnered_control_function.address(),
+			&self.can_message_data_buffer,
+		);
+		network_manager.send_can_message(message);
 	}
 
 
 
-
-
-
-
-
-
-    pub fn update(&mut self) {
+    pub fn update(&mut self, network_manager: &CanNetworkManager) {
         // Firt update the connected controll functions
-        self.internal_control_function.update();
-        // self.partnered_control_function.update();
+        self.internal_control_function.update(network_manager);
+        // self.partnered_control_function.update(network_manager);
+
+		for message in network_manager {
+			self.process_can_message(message)
+		}
 
 		// for (_,callback) in &mut self.soft_key_event_callbacks {
 		// 	callback(VTKeyEvent{ object_Id: 0, parent_object_Id: 0, key_number: 0 });
@@ -390,8 +405,8 @@ impl VirtualTerminalClient {
 
 		// if (nullptr != partnerControlFunction)
 		// {
-		// 	switch (state)
-		// 	{
+			// match self.state
+			// {
 		// 		case StateMachineState::Disconnected:
 		// 		{
 		// 			sendWorkingSetMaintenance = false;
@@ -800,819 +815,734 @@ impl VirtualTerminalClient {
 		// }
     }
 
-	pub fn process_can_message(&mut self, message: &CanMessage) {
-		// match message.id().parameter_group_number() {
-		// 	ParameterGroupNumber::Acknowledge => {
-		// 		// if AcknowledgementType::Negative == message.get_uint8_at(0) {
-		// 		// 	if ParameterGroupNumber::ECUtoVirtualTerminal == message.get_uint24_at(5) {
-		// 		// 		log::error!("[VT]: The VT Server is NACK-ing our VT messages. Disconnecting.");
-		// 		// 		self.set_state(StateMachineState::Disconnected);
-		// 		// 	}
-		// 		// }
-		// 	},
-		// 	ParameterGroupNumber::VirtualTerminalToECU => {
 
-		// 	},
-		// 	ParameterGroupNumber::ECUtoVirtualTerminal => {
 
-		// 	},
-		// 	_ => {
-		// 		log::warn!("[VT]: Client unknown message: {}" + message.id().parameter_group_number());
-		// 	},
-		// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	pub fn process_can_message(&self, message: CanMessage) {
+		match message.pgn() {
+			ParameterGroupNumber::Acknowledge => {
+				// if AcknowledgementType::Negative as u8 == message.data()[0] {
+				// 	if ParameterGroupNumber::ECUtoVirtualTerminal == message.data()[5..8].into() {
+				// 		log::error!("[VT]: The VT Server is NACK-ing our VT messages. Disconnecting.");
+				// 		self.set_state(StateMachineState::Disconnected);
+				// 	}
+				// }
+			},
+			ParameterGroupNumber::VirtualTerminalToECU => {
+				if let Ok(vt_function) = message.data()[0].try_into() {
+					match vt_function {
+						VTFunction::SoftKeyActivationMessage => {
+							let key_event: KeyActivationCode = message.data()[1].try_into().unwrap_or_else(|e| KeyActivationCode::ButtonPressAborted);
+							let object_id: u16 = u16::from_le_bytes([message.data()[2], message.data()[3]]);
+							let parent_object_id: u16 = u16::from_le_bytes([message.data()[4], message.data()[5]]);
+							let key_number: u8 = message.data()[6];
+							// if self.partnered_control_function.get_vt_version_supported(VTVersion::Version6) {
+							// 	// TODO: process TAN
+							// }
+							for (_,callback) in self.soft_key_event_callbacks {
+								callback(VTKeyEvent{
+									object_id,
+									parent_object_id,
+									key_number,
+									key_event,
+								});
+							}
+						}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::ButtonActivationMessage):
+				// 		{
+				// 			std::uint8_t keyCode = message.get_uint8_at(1);
+				// 			if (keyCode <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
+				// 			{
+				// 				std::uint16_t objectID = message.get_uint16_at(2);
+				// 				std::uint16_t parentObjectID = message.get_uint16_at(4);
+				// 				std::uint8_t keyNumber = message.get_uint8_at(6);
+				// 				if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 				{
+				// 					//! @todo process TAN
+				// 				}
+				// 				parentVT->buttonEventDispatcher.invoke({ parentVT, objectID, parentObjectID, keyNumber, static_cast<KeyActivationCode>(keyCode) });
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::PointingEventMessage):
+				// 		{
+				// 			std::uint16_t xPosition = message.get_uint16_at(1);
+				// 			std::uint16_t yPosition = message.get_uint16_at(3);
+				// 			std::uint8_t touchState = static_cast<std::uint8_t>(KeyActivationCode::ButtonPressedOrLatched);
+				// 			std::uint16_t parentMaskObjectID = NULL_OBJECT_ID;
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				// VT version is at least 6
+				// 				touchState = message.get_uint8_at(5) & 0x0F;
+				// 				parentMaskObjectID = message.get_uint16_at(6);
+				// 				//! @todo process TAN
+				// 			}
+				// 			else if (parentVT->get_vt_version_supported(VTVersion::Version4))
+				// 			{
+				// 				// VT version is either 4 or 5
+				// 				touchState = message.get_uint8_at(5);
+				// 			}
+				// 			if (touchState <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
+				// 			{
+				// 				parentVT->pointingEventDispatcher.invoke({ parentVT, xPosition, yPosition, parentMaskObjectID, static_cast<KeyActivationCode>(touchState) });
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTSelectInputObjectMessage):
+				// 		{
+				// 			std::uint16_t objectID = message.get_uint16_at(1);
+				// 			bool objectSelected = (0x01 == message.get_uint8_at(3));
+				// 			bool objectOpenForInput = true;
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version4))
+				// 			{
+				// 				objectOpenForInput = message.get_bool_at(4, 0);
+				// 			}
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				//! @todo process TAN
+				// 			}
+				// 			parentVT->selectInputObjectEventDispatcher.invoke({ parentVT, objectID, objectSelected, objectOpenForInput });
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTESCMessage):
+				// 		{
+				// 			std::uint16_t objectID = message.get_uint16_at(1);
+				// 			std::uint8_t errorCode = message.get_uint8_at(3) & 0x1F;
+				// 			if ((errorCode == static_cast<std::uint8_t>(ESCMessageErrorCode::OtherError)) ||
+				// 			    (errorCode <= static_cast<std::uint8_t>(ESCMessageErrorCode::NoInputFieldOpen)))
+				// 			{
+				// 				if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 				{
+				// 					//! @todo process TAN
+				// 				}
+				// 				parentVT->escMessageEventDispatcher.invoke({ parentVT, objectID, static_cast<ESCMessageErrorCode>(errorCode) });
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTChangeNumericValueMessage):
+				// 		{
+				// 			std::uint16_t objectID = message.get_uint16_at(1);
+				// 			std::uint32_t value = message.get_uint32_at(4);
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				//! @todo process TAN
+				// 			}
+				// 			parentVT->changeNumericValueEventDispatcher.invoke({ parentVT, value, objectID });
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTChangeActiveMaskMessage):
+				// 		{
+				// 			std::uint16_t maskObjectID = message.get_uint16_at(1);
+				// 			bool missingObjects = message.get_bool_at(3, 2);
+				// 			bool maskOrChildHasErrors = message.get_bool_at(3, 3);
+				// 			bool anyOtherError = message.get_bool_at(3, 4);
+				// 			bool poolDeleted = message.get_bool_at(3, 5);
+				// 			std::uint16_t errorObjectID = message.get_uint16_at(4);
+				// 			std::uint16_t parentObjectID = message.get_uint16_at(6);
+				// 			parentVT->changeActiveMaskEventDispatcher.invoke({ parentVT,
+				// 			                                                   maskObjectID,
+				// 			                                                   errorObjectID,
+				// 			                                                   parentObjectID,
+				// 			                                                   missingObjects,
+				// 			                                                   maskOrChildHasErrors,
+				// 			                                                   anyOtherError,
+				// 			                                                   poolDeleted });
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTChangeSoftKeyMaskMessage):
+				// 		{
+				// 			std::uint16_t dataOrAlarmMaskID = message.get_uint16_at(1);
+				// 			std::uint16_t softKeyMaskID = message.get_uint16_at(3);
+				// 			bool missingObjects = message.get_bool_at(5, 2);
+				// 			bool maskOrChildHasErrors = message.get_bool_at(5, 3);
+				// 			bool anyOtherError = message.get_bool_at(5, 4);
+				// 			bool poolDeleted = message.get_bool_at(5, 5);
+				// 			parentVT->changeSoftKeyMaskEventDispatcher.invoke({ parentVT,
+				// 			                                                    dataOrAlarmMaskID,
+				// 			                                                    softKeyMaskID,
+				// 			                                                    missingObjects,
+				// 			                                                    maskOrChildHasErrors,
+				// 			                                                    anyOtherError,
+				// 			                                                    poolDeleted });
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTChangeStringValueMessage):
+				// 		{
+				// 			std::uint16_t objectID = message.get_uint16_at(1);
+				// 			std::uint8_t stringLength = message.get_uint8_at(3);
+				// 			std::string value = std::string(message.get_data().begin() + 4, message.get_data().begin() + 4 + stringLength);
+				// 			parentVT->changeStringValueEventDispatcher.invoke({ value, parentVT, objectID });
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTOnUserLayoutHideShowMessage):
+				// 		{
+				// 			std::uint16_t objectID = message.get_uint16_at(1);
+				// 			bool hidden = !message.get_bool_at(3, 0);
+				// 			parentVT->userLayoutHideShowEventDispatcher.invoke({ parentVT, objectID, hidden });
+				// 			// There could be two layout messages in one packet
+				// 			objectID = message.get_uint16_at(4);
+				// 			if (objectID != NULL_OBJECT_ID)
+				// 			{
+				// 				hidden = !message.get_bool_at(6, 0);
+				// 				parentVT->userLayoutHideShowEventDispatcher.invoke({ parentVT, objectID, hidden });
+				// 			}
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				//! @todo process TAN
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTControlAudioSignalTerminationMessage):
+				// 		{
+				// 			bool terminated = message.get_bool_at(1, 0);
+				// 			parentVT->audioSignalTerminationEventDispatcher.invoke({ parentVT, terminated });
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				//! @todo process TAN
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::PreferredAssignmentCommand):
+				// 		{
+				// 			if (message.get_bool_at(1, 0))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Auxiliary Input Unit(s) (NAME or Model Identification Code) not valid");
+				// 			}
+				// 			if (message.get_bool_at(1, 1))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Function Object ID(S) not valid");
+				// 			}
+				// 			if (message.get_bool_at(1, 2))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Input Object ID(s) not valid");
+				// 			}
+				// 			if (message.get_bool_at(1, 3))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Duplicate Object ID of Auxiliary Function");
+				// 			}
+				// 			if (message.get_bool_at(1, 4))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Other");
+				// 			}
+				// 			if (0 != message.get_uint8_at(1))
+				// 			{
+				// 				std::uint16_t faultyObjectID = message.get_uint16_at(2);
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Auxiliary Function Object ID of faulty assignment: " + isobus::to_string(faultyObjectID));
+				// 			}
+				// 			else
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Preferred Assignment OK");
+				// 				//! @todo load the preferred assignment into parentVT->assignedAuxiliaryInputDevices
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::AuxiliaryAssignmentTypeTwoCommand):
+				// 		{
+				// 			if (14 == message.get_data_length())
+				// 			{
+				// 				std::uint64_t isoName = message.get_uint64_at(1);
+				// 				bool storeAsPreferred = message.get_bool_at(9, 7);
+				// 				std::uint8_t functionType = (message.get_uint8_at(9) & 0x1F);
+				// 				std::uint16_t inputObjectID = message.get_uint16_at(10);
+				// 				std::uint16_t functionObjectID = message.get_uint16_at(12);
+				// 				bool hasError = false;
+				// 				bool isAlreadyAssigned = false;
+				// 				if (DEFAULT_NAME == isoName && 0x1F == functionType)
+				// 				{
+				// 					if (NULL_OBJECT_ID == functionObjectID)
+				// 					{
+				// 						for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
+				// 						{
+				// 							aux.functions.clear();
+				// 						}
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N] Unassigned all functions");
+				// 					}
+				// 					else if (NULL_OBJECT_ID == inputObjectID)
+				// 					{
+				// 						for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
+				// 						{
+				// 							for (auto iter = aux.functions.begin(); iter != aux.functions.end();)
+				// 							{
+				// 								if (iter->functionObjectID == functionObjectID)
+				// 								{
+				// 									aux.functions.erase(iter);
+				// 									if (storeAsPreferred)
+				// 									{
+				// 										//! @todo save preferred assignment to persistent configuration
+				// 									}
+				// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N] Unassigned function " + isobus::to_string(static_cast<int>(functionObjectID)) + " from input " + isobus::to_string(static_cast<int>(inputObjectID)));
+				// 								}
+				// 								else
+				// 								{
+				// 									++iter;
+				// 								}
+				// 							}
+				// 						}
+				// 					}
+				// 				}
+				// 				else
+				// 				{
+				// 					auto result = std::find_if(parentVT->assignedAuxiliaryInputDevices.begin(), parentVT->assignedAuxiliaryInputDevices.end(), [&isoName](const AssignedAuxiliaryInputDevice &aux) {
+				// 						return aux.name == isoName;
+				// 					});
+				// 					if (result != std::end(parentVT->assignedAuxiliaryInputDevices))
+				// 					{
+				// 						if (static_cast<std::uint8_t>(AuxiliaryTypeTwoFunctionType::QuadratureBooleanMomentary) >= functionType)
+				// 						{
+				// 							AssignedAuxiliaryFunction assignment(functionObjectID, inputObjectID, static_cast<AuxiliaryTypeTwoFunctionType>(functionType));
+				// 							auto location = std::find(result->functions.begin(), result->functions.end(), assignment);
+				// 							if (location == std::end(result->functions))
+				// 							{
+				// 								result->functions.push_back(assignment);
+				// 								if (storeAsPreferred)
+				// 								{
+				// 									//! @todo save preferred assignment to persistent configuration
+				// 								}
+				// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N]: Assigned function " + isobus::to_string(static_cast<int>(functionObjectID)) + " to input " + isobus::to_string(static_cast<int>(inputObjectID)));
+				// 							}
+				// 							else
+				// 							{
+				// 								hasError = true;
+				// 								isAlreadyAssigned = true;
+				// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to missing auxiliary input device with name: " + isobus::to_string(isoName));
+				// 							}
+				// 						}
+				// 						else
+				// 						{
+				// 							hasError = true;
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to unsupported function type: " + isobus::to_string(functionType));
+				// 						}
+				// 					}
+				// 					else
+				// 					{
+				// 						hasError = true;
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to missing auxiliary input device with name: " + isobus::to_string(isoName));
+				// 					}
+				// 				}
+				// 				parentVT->send_auxiliary_function_assignment_response(functionObjectID, hasError, isAlreadyAssigned);
+				// 			}
+				// 			else
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Received AuxiliaryAssignmentTypeTwoCommand with wrong data length: " + isobus::to_string(message.get_data_length()) + " but expected 14.");
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::AuxiliaryInputTypeTwoStatusMessage):
+				// 		{
+				// 			std::uint16_t inputObjectID = message.get_uint16_at(1);
+				// 			std::uint16_t value1 = message.get_uint16_at(3);
+				// 			std::uint16_t value2 = message.get_uint16_at(5);
+				// 			/// @todo figure out how to best pass other status properties below to application
+				// 			/// @todo The standard requires us to not perform any auxiliary function when learn mode is active, so we probably want to let the application know about that somehow
+				// 			// bool learnModeActive = message.get_bool_at(7, 0);
+				// 			// bool inputActive = message.get_bool_at(7, 1); // Only in learn mode?
+				// 			// bool controlIsLocked = false;
+				// 			// bool interactionWhileLocked = false;
+				// 			if (parentVT->get_vt_version_supported(VTVersion::Version6))
+				// 			{
+				// 				// controlIsLocked = message.get_bool_at(7, 2);
+				// 				// interactionWhileLocked = message.get_bool_at(7, 3);
+				// 			}
+				// 			for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
+				// 			{
+				// 				auto result = std::find_if(aux.functions.begin(), aux.functions.end(), [&inputObjectID](const AssignedAuxiliaryFunction &assignment) {
+				// 					return assignment.inputObjectID == inputObjectID;
+				// 				});
+				// 				if (aux.functions.end() != result)
+				// 				{
+				// 					parentVT->auxiliaryFunctionEventDispatcher.invoke({ *result, parentVT, value1, value2 });
+				// 				}
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::AuxiliaryInputStatusTypeTwoEnableCommand):
+				// 		{
+				// 			std::uint16_t inputObjectID = message.get_uint16_at(1);
+				// 			bool shouldEnable = message.get_bool_at(3, 0);
+				// 			auto result = std::find_if(parentVT->ourAuxiliaryInputs.begin(), parentVT->ourAuxiliaryInputs.end(), [&inputObjectID](const std::pair<std::uint16_t, AuxiliaryInputState> &input) {
+				// 				return input.first == inputObjectID;
+				// 			});
+				// 			bool isInvalidObjectID = (result == std::end(parentVT->ourAuxiliaryInputs));
+				// 			if (!isInvalidObjectID)
+				// 			{
+				// 				result->second.enabled = shouldEnable;
+				// 			}
+				// 			parentVT->send_auxiliary_input_status_enable_response(inputObjectID, isInvalidObjectID ? false : shouldEnable, isInvalidObjectID);
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::VTStatusMessage):
+				// 		{
+				// 			parentVT->lastVTStatusTimestamp_ms = SystemTiming::get_timestamp_ms();
+				// 			parentVT->activeWorkingSetMasterAddress = message.get_uint8_at(1);
+				// 			parentVT->activeWorkingSetDataMaskObjectID = message.get_uint16_at(2);
+				// 			parentVT->activeWorkingSetSoftKeyMaskObjectID = message.get_uint16_at(4);
+				// 			parentVT->busyCodesBitfield = message.get_uint8_at(6);
+				// 			parentVT->currentCommandFunctionCode = message.get_uint8_at(7);
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::GetMemoryMessage):
+				// 		{
+				// 			if (StateMachineState::WaitForGetMemoryResponse == parentVT->state)
+				// 			{
+				// 				parentVT->connectedVTVersion = message.get_uint8_at(1);
+				// 				if (0 == message.get_uint8_at(2))
+				// 				{
+				// 					// There IS enough memory
+				// 					parentVT->set_state(StateMachineState::SendGetNumberSoftkeys);
+				// 				}
+				// 				else
+				// 				{
+				// 					parentVT->set_state(StateMachineState::Failed);
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Connection Failed Not Enough Memory");
+				// 				}
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::GetNumberOfSoftKeysMessage):
+				// 		{
+				// 			if (StateMachineState::WaitForGetNumberSoftKeysResponse == parentVT->state)
+				// 			{
+				// 				parentVT->softKeyXAxisPixels = message.get_uint8_at(4);
+				// 				parentVT->softKeyYAxisPixels = message.get_uint8_at(5);
+				// 				parentVT->numberVirtualSoftkeysPerSoftkeyMask = message.get_uint8_at(6);
+				// 				parentVT->numberPhysicalSoftkeys = message.get_uint8_at(7);
+				// 				parentVT->set_state(StateMachineState::SendGetTextFontData);
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::GetTextFontDataMessage):
+				// 		{
+				// 			if (StateMachineState::WaitForGetTextFontDataResponse == parentVT->state)
+				// 			{
+				// 				parentVT->smallFontSizesBitfield = message.get_uint8_at(5);
+				// 				parentVT->largeFontSizesBitfield = message.get_uint8_at(6);
+				// 				parentVT->fontStylesBitfield = message.get_uint8_at(7);
+				// 				parentVT->set_state(StateMachineState::SendGetHardware);
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::GetHardwareMessage):
+				// 		{
+				// 			if (StateMachineState::WaitForGetHardwareResponse == parentVT->state)
+				// 			{
+				// 				if (message.get_uint8_at(2) <= static_cast<std::uint8_t>(GraphicMode::TwoHundredFiftySixColour))
+				// 				{
+				// 					parentVT->supportedGraphicsMode = static_cast<GraphicMode>(message.get_uint8_at(2));
+				// 				}
+				// 				parentVT->hardwareFeaturesBitfield = message.get_uint8_at(3);
+				// 				parentVT->xPixels = message.get_uint16_at(4);
+				// 				parentVT->yPixels = message.get_uint16_at(6);
+				// 				parentVT->lastObjectPoolIndex = 0;
+				// 				// Check if we need to ask for pool versions
+				// 				// Ony check the first pool, all pools are labeled the same per working set.
+				// 				if ((!parentVT->objectPools.empty()) &&
+				// 				    (!parentVT->objectPools[0].versionLabel.empty()))
+				// 				{
+				// 					parentVT->set_state(StateMachineState::SendGetVersions);
+				// 				}
+				// 				else
+				// 				{
+				// 					parentVT->set_state(StateMachineState::UploadObjectPool);
+				// 				}
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::GetVersionsResponse):
+				// 		{
+				// 			if (StateMachineState::WaitForGetVersionsResponse == parentVT->state)
+				// 			{
+				// 				// See if the server returned any labels
+				// 				const std::uint8_t numberOfLabels = message.get_uint8_at(1);
+				// 				constexpr std::size_t LABEL_LENGTH = 7;
+				// 				if (numberOfLabels > 0)
+				// 				{
+				// 					// Check for label match
+				// 					bool labelMatched = false;
+				// 					const std::size_t remainingLength = (2 + (LABEL_LENGTH * numberOfLabels));
+				// 					if (message.get_data_length() >= remainingLength)
+				// 					{
+				// 						for (std::uint_fast8_t i = 0; i < numberOfLabels; i++)
+				// 						{
+				// 							char tempStringLabel[8] = { 0 };
+				// 							tempStringLabel[0] = message.get_uint8_at(2 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[1] = message.get_uint8_at(3 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[2] = message.get_uint8_at(4 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[3] = message.get_uint8_at(5 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[4] = message.get_uint8_at(6 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[5] = message.get_uint8_at(7 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[6] = message.get_uint8_at(8 + (LABEL_LENGTH * i));
+				// 							tempStringLabel[7] = '\0';
+				// 							std::string labelDecoded(tempStringLabel);
+				// 							std::string tempActualLabel(parentVT->objectPools[0].versionLabel);
+				// 							// Check if we need to manipulate the passed in label by padding with spaces
+				// 							while (tempActualLabel.size() < LABEL_LENGTH)
+				// 							{
+				// 								tempActualLabel.push_back(' ');
+				// 							}
+				// 							if (tempActualLabel.size() > LABEL_LENGTH)
+				// 							{
+				// 								tempActualLabel.resize(LABEL_LENGTH);
+				// 							}
+				// 							if (tempActualLabel == labelDecoded)
+				// 							{
+				// 								labelMatched = true;
+				// 								parentVT->set_state(StateMachineState::SendLoadVersion);
+				// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: VT Server has a matching label for " + isobus::to_string(labelDecoded) + ". It will be loaded and upload will be skipped.");
+				// 								break;
+				// 							}
+				// 							else
+				// 							{
+				// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: VT Server has a label for " + isobus::to_string(labelDecoded) + ". This version will be deleted.");
+				// 								const std::array<std::uint8_t, 7> deleteBuffer = {
+				// 									static_cast<std::uint8_t>(labelDecoded[0]),
+				// 									static_cast<std::uint8_t>(labelDecoded[1]),
+				// 									static_cast<std::uint8_t>(labelDecoded[2]),
+				// 									static_cast<std::uint8_t>(labelDecoded[3]),
+				// 									static_cast<std::uint8_t>(labelDecoded[4]),
+				// 									static_cast<std::uint8_t>(labelDecoded[5]),
+				// 									static_cast<std::uint8_t>(labelDecoded[6])
+				// 								};
+				// 								if (!parentVT->send_delete_version(deleteBuffer))
+				// 								{
+				// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Failed to send the delete version message for label " + isobus::to_string(labelDecoded));
+				// 								}
+				// 							}
+				// 						}
+				// 						if (!labelMatched)
+				// 						{
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: No version label from the VT matched. Client will upload the pool and store it instead.");
+				// 							parentVT->set_state(StateMachineState::UploadObjectPool);
+				// 						}
+				// 					}
+				// 					else
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Get Versions Response length is not long enough. Message ignored.");
+				// 					}
+				// 				}
+				// 				else
+				// 				{
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: No version label from the VT matched. Client will upload the pool and store it instead.");
+				// 					parentVT->set_state(StateMachineState::UploadObjectPool);
+				// 				}
+				// 			}
+				// 			else
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Get Versions Response ignored!");
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::LoadVersionCommand):
+				// 		{
+				// 			if (StateMachineState::WaitForLoadVersionResponse == parentVT->state)
+				// 			{
+				// 				if (0 == message.get_uint8_at(5))
+				// 				{
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Loaded object pool version from VT non-volatile memory with no errors.");
+				// 					parentVT->set_state(StateMachineState::Connected);
+				// 					//! @todo maybe a better way available than relying on aux function callbacks registered?
+				// 					if (parentVT->auxiliaryFunctionEventDispatcher.get_listener_count() > 0)
+				// 					{
+				// 						if (parentVT->send_auxiliary_functions_preferred_assignment())
+				// 						{
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Sent preferred assignments after LoadVersionCommand.");
+				// 						}
+				// 						else
+				// 						{
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Failed to send preferred assignments after LoadVersionCommand.");
+				// 						}
+				// 					}
+				// 				}
+				// 				else
+				// 				{
+				// 					// At least one error is set
+				// 					if (message.get_bool_at(5, 0))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: File system error or corruption.");
+				// 					}
+				// 					if (message.get_bool_at(5, 1))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: Insufficient memory.");
+				// 					}
+				// 					if (message.get_bool_at(5, 2))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: Any other error.");
+				// 					}
+				// 					// Not sure what happened here... should be mostly impossible. Try to upload instead.
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Switching to pool upload instead.");
+				// 					parentVT->set_state(StateMachineState::UploadObjectPool);
+				// 				}
+				// 			}
+				// 			else
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response ignored!");
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::StoreVersionCommand):
+				// 		{
+				// 			if (StateMachineState::WaitForStoreVersionResponse == parentVT->state)
+				// 			{
+				// 				if (0 == message.get_uint8_at(5))
+				// 				{
+				// 					// Stored with no error
+				// 					parentVT->set_state(StateMachineState::Connected);
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Stored object pool with no error.");
+				// 				}
+				// 				else
+				// 				{
+				// 					// At least one error is set
+				// 					if (message.get_bool_at(5, 0))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Version label is not correct.");
+				// 					}
+				// 					if (message.get_bool_at(5, 1))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Insufficient memory.");
+				// 					}
+				// 					if (message.get_bool_at(5, 2))
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Any other error.");
+				// 					}
+				// 				}
+				// 			}
+				// 			else
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response ignored!");
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::DeleteVersionCommand):
+				// 		{
+				// 			if (0 == message.get_uint8_at(5))
+				// 			{
+				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Delete Version Response OK!");
+				// 			}
+				// 			else
+				// 			{
+				// 				if (message.get_bool_at(5, 1))
+				// 				{
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Version label is not correct, or unknown.");
+				// 				}
+				// 				if (message.get_bool_at(5, 3))
+				// 				{
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Any other error.");
+				// 				}
+				// 			}
+				// 		}
+				// 		break;
+				// 		case static_cast<std::uint8_t>(Function::EndOfObjectPoolMessage):
+				// 		{
+				// 			if (StateMachineState::WaitForEndOfObjectPoolResponse == parentVT->state)
+				// 			{
+				// 				bool anyErrorInPool = message.get_bool_at(1, 0);
+				// 				bool vtRanOutOfMemory = message.get_bool_at(1, 1);
+				// 				bool otherErrors = message.get_bool_at(1, 3);
+				// 				std::uint16_t parentObjectIDOfFaultyObject = message.get_uint16_at(2);
+				// 				std::uint16_t objectIDOfFaultyObject = message.get_uint16_at(4);
+				// 				std::uint8_t objectPoolErrorBitmask = message.get_uint8_at(6);
+				// 				if ((!anyErrorInPool) &&
+				// 				    (0 == objectPoolErrorBitmask))
+				// 				{
+				// 					// Clear scaling buffers
+				// 					for (auto &objectPool : parentVT->objectPools)
+				// 					{
+				// 						objectPool.scaledObjectPool.clear();
+				// 					}
+				// 					// Check if we need to store this pool
+				// 					if (!parentVT->objectPools[0].versionLabel.empty())
+				// 					{
+				// 						parentVT->set_state(StateMachineState::SendStoreVersion);
+				// 					}
+				// 					else
+				// 					{
+				// 						parentVT->set_state(StateMachineState::Connected);
+				// 					}
+				// 					//! @todo maybe a better way available than relying on aux function callbacks registered?
+				// 					if (parentVT->auxiliaryFunctionEventDispatcher.get_listener_count() > 0)
+				// 					{
+				// 						if (parentVT->send_auxiliary_functions_preferred_assignment())
+				// 						{
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Sent preferred assignments after EndOfObjectPoolMessage.");
+				// 						}
+				// 						else
+				// 						{
+				// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Failed to send preferred assignments after EndOfObjectPoolMessage.");
+				// 						}
+				// 					}
+				// 				}
+				// 				else
+				// 				{
+				// 					parentVT->set_state(StateMachineState::Failed);
+				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Error in end of object pool message." + std::string("Faulty Object ") + isobus::to_string(static_cast<int>(objectIDOfFaultyObject)) + std::string(" Faulty Object Parent ") + isobus::to_string(static_cast<int>(parentObjectIDOfFaultyObject)) + std::string(" Pool error bitmask value ") + isobus::to_string(static_cast<int>(objectPoolErrorBitmask)));
+				// 					if (vtRanOutOfMemory)
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Ran out of memory");
+				// 					}
+				// 					if (otherErrors)
+				// 					{
+				// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Reported other errors in EOM response");
+				// 					}
+				// 				}
+				// 			}
+				// 		}
+						_ => {},
+					}
+				}
+			},
+			ParameterGroupNumber::ECUtoVirtualTerminal => {
+				if let Ok(vt_function) = message.data()[0].try_into() {
+					match vt_function {
+						VTFunction::AuxiliaryInputTypeTwoMaintenanceMessage => {
+							let model_identification_code = u16::from_le_bytes([message.data()[1], message.data()[2]]);
+							let ready = message.data()[3] != 0;
+				
+							if ready {
+					// 			auto result = std::find_if(parentVT->assignedAuxiliaryInputDevices.begin(), parentVT->assignedAuxiliaryInputDevices.end(), [&modelIdentificationCode](const AssignedAuxiliaryInputDevice &aux) {
+					// 				return aux.modelIdentificationCode == modelIdentificationCode;
+					// 			});
+					// 			if (result == std::end(parentVT->assignedAuxiliaryInputDevices))
+					// 			{
+					// 				AssignedAuxiliaryInputDevice inputDevice{ message.get_source_control_function()->get_NAME().get_full_name(), modelIdentificationCode, {} };
+					// 				parentVT->assignedAuxiliaryInputDevices.push_back(inputDevice);
+					// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N]: New auxiliary input device with name: " + isobus::to_string(inputDevice.name) + " and model identification code: " + isobus::to_string(modelIdentificationCode));
+					// 			}
+							}
+						},
+						_ => {},
+					}
+				}
+			},
+			_ => {
+				log::warn!("[VT]: Client unknown message: {:?}", message.pgn());
+			},
+		}
 	}
-	// void VirtualTerminalClient::process_rx_message(const CANMessage &message, void *parentPointer)
-	// {
-	// 	VirtualTerminalClient *parentVT = static_cast<VirtualTerminalClient *>(parentPointer);
-	// 	if ((nullptr != parentPointer) &&
-	// 	    (CAN_DATA_LENGTH <= message.get_data_length()) &&
-	// 	    ((nullptr == message.get_destination_control_function()) ||
-	// 	     (parentVT->myControlFunction == message.get_destination_control_function())))
-	// 	{
-	// 		switch (message.get_identifier().get_parameter_group_number())
-	// 		{
-	// 			case static_cast<std::uint32_t>(CANLibParameterGroupNumber::Acknowledge):
-	// 			{
-	// 				if (AcknowledgementType::Negative == static_cast<AcknowledgementType>(message.get_uint8_at(0)))
-	// 				{
-	// 					std::uint32_t targetParameterGroupNumber = message.get_uint24_at(5);
-	// 					if (static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal) == targetParameterGroupNumber)
-	// 					{
-	// 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: The VT Server is NACK-ing our VT messages. Disconnecting.");
-	// 						parentVT->set_state(StateMachineState::Disconnected);
-	// 					}
-	// 				}
-	// 			}
-	// 			break;
-
-	// 			case static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU):
-	// 			{
-	// 				switch (message.get_uint8_at(0))
-	// 				{
-	// 					case static_cast<std::uint8_t>(Function::SoftKeyActivationMessage):
-	// 					{
-	// 						std::uint8_t keyCode = message.get_uint8_at(1);
-	// 						if (keyCode <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
-	// 						{
-	// 							std::uint16_t objectID = message.get_uint16_at(2);
-	// 							std::uint16_t parentObjectID = message.get_uint16_at(4);
-	// 							std::uint8_t keyNumber = message.get_uint8_at(6);
-	// 							if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 							{
-	// 								//! @todo process TAN
-	// 							}
-
-	// 							parentVT->softKeyEventDispatcher.invoke({ parentVT, objectID, parentObjectID, keyNumber, static_cast<KeyActivationCode>(keyCode) });
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::ButtonActivationMessage):
-	// 					{
-	// 						std::uint8_t keyCode = message.get_uint8_at(1);
-	// 						if (keyCode <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
-	// 						{
-	// 							std::uint16_t objectID = message.get_uint16_at(2);
-	// 							std::uint16_t parentObjectID = message.get_uint16_at(4);
-	// 							std::uint8_t keyNumber = message.get_uint8_at(6);
-	// 							if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 							{
-	// 								//! @todo process TAN
-	// 							}
-	// 							parentVT->buttonEventDispatcher.invoke({ parentVT, objectID, parentObjectID, keyNumber, static_cast<KeyActivationCode>(keyCode) });
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::PointingEventMessage):
-	// 					{
-	// 						std::uint16_t xPosition = message.get_uint16_at(1);
-	// 						std::uint16_t yPosition = message.get_uint16_at(3);
-
-	// 						std::uint8_t touchState = static_cast<std::uint8_t>(KeyActivationCode::ButtonPressedOrLatched);
-	// 						std::uint16_t parentMaskObjectID = NULL_OBJECT_ID;
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							// VT version is at least 6
-	// 							touchState = message.get_uint8_at(5) & 0x0F;
-	// 							parentMaskObjectID = message.get_uint16_at(6);
-	// 							//! @todo process TAN
-	// 						}
-	// 						else if (parentVT->get_vt_version_supported(VTVersion::Version4))
-	// 						{
-	// 							// VT version is either 4 or 5
-	// 							touchState = message.get_uint8_at(5);
-	// 						}
-
-	// 						if (touchState <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
-	// 						{
-	// 							parentVT->pointingEventDispatcher.invoke({ parentVT, xPosition, yPosition, parentMaskObjectID, static_cast<KeyActivationCode>(touchState) });
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTSelectInputObjectMessage):
-	// 					{
-	// 						std::uint16_t objectID = message.get_uint16_at(1);
-	// 						bool objectSelected = (0x01 == message.get_uint8_at(3));
-	// 						bool objectOpenForInput = true;
-
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version4))
-	// 						{
-	// 							objectOpenForInput = message.get_bool_at(4, 0);
-	// 						}
-
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							//! @todo process TAN
-	// 						}
-
-	// 						parentVT->selectInputObjectEventDispatcher.invoke({ parentVT, objectID, objectSelected, objectOpenForInput });
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTESCMessage):
-	// 					{
-	// 						std::uint16_t objectID = message.get_uint16_at(1);
-	// 						std::uint8_t errorCode = message.get_uint8_at(3) & 0x1F;
-	// 						if ((errorCode == static_cast<std::uint8_t>(ESCMessageErrorCode::OtherError)) ||
-	// 						    (errorCode <= static_cast<std::uint8_t>(ESCMessageErrorCode::NoInputFieldOpen)))
-	// 						{
-	// 							if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 							{
-	// 								//! @todo process TAN
-	// 							}
-
-	// 							parentVT->escMessageEventDispatcher.invoke({ parentVT, objectID, static_cast<ESCMessageErrorCode>(errorCode) });
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTChangeNumericValueMessage):
-	// 					{
-	// 						std::uint16_t objectID = message.get_uint16_at(1);
-	// 						std::uint32_t value = message.get_uint32_at(4);
-
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							//! @todo process TAN
-	// 						}
-	// 						parentVT->changeNumericValueEventDispatcher.invoke({ parentVT, value, objectID });
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTChangeActiveMaskMessage):
-	// 					{
-	// 						std::uint16_t maskObjectID = message.get_uint16_at(1);
-
-	// 						bool missingObjects = message.get_bool_at(3, 2);
-	// 						bool maskOrChildHasErrors = message.get_bool_at(3, 3);
-	// 						bool anyOtherError = message.get_bool_at(3, 4);
-	// 						bool poolDeleted = message.get_bool_at(3, 5);
-
-	// 						std::uint16_t errorObjectID = message.get_uint16_at(4);
-	// 						std::uint16_t parentObjectID = message.get_uint16_at(6);
-
-	// 						parentVT->changeActiveMaskEventDispatcher.invoke({ parentVT,
-	// 						                                                   maskObjectID,
-	// 						                                                   errorObjectID,
-	// 						                                                   parentObjectID,
-	// 						                                                   missingObjects,
-	// 						                                                   maskOrChildHasErrors,
-	// 						                                                   anyOtherError,
-	// 						                                                   poolDeleted });
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTChangeSoftKeyMaskMessage):
-	// 					{
-	// 						std::uint16_t dataOrAlarmMaskID = message.get_uint16_at(1);
-	// 						std::uint16_t softKeyMaskID = message.get_uint16_at(3);
-
-	// 						bool missingObjects = message.get_bool_at(5, 2);
-	// 						bool maskOrChildHasErrors = message.get_bool_at(5, 3);
-	// 						bool anyOtherError = message.get_bool_at(5, 4);
-	// 						bool poolDeleted = message.get_bool_at(5, 5);
-
-	// 						parentVT->changeSoftKeyMaskEventDispatcher.invoke({ parentVT,
-	// 						                                                    dataOrAlarmMaskID,
-	// 						                                                    softKeyMaskID,
-	// 						                                                    missingObjects,
-	// 						                                                    maskOrChildHasErrors,
-	// 						                                                    anyOtherError,
-	// 						                                                    poolDeleted });
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTChangeStringValueMessage):
-	// 					{
-	// 						std::uint16_t objectID = message.get_uint16_at(1);
-	// 						std::uint8_t stringLength = message.get_uint8_at(3);
-	// 						std::string value = std::string(message.get_data().begin() + 4, message.get_data().begin() + 4 + stringLength);
-
-	// 						parentVT->changeStringValueEventDispatcher.invoke({ value, parentVT, objectID });
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTOnUserLayoutHideShowMessage):
-	// 					{
-	// 						std::uint16_t objectID = message.get_uint16_at(1);
-	// 						bool hidden = !message.get_bool_at(3, 0);
-
-	// 						parentVT->userLayoutHideShowEventDispatcher.invoke({ parentVT, objectID, hidden });
-
-	// 						// There could be two layout messages in one packet
-	// 						objectID = message.get_uint16_at(4);
-	// 						if (objectID != NULL_OBJECT_ID)
-	// 						{
-	// 							hidden = !message.get_bool_at(6, 0);
-	// 							parentVT->userLayoutHideShowEventDispatcher.invoke({ parentVT, objectID, hidden });
-	// 						}
-
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							//! @todo process TAN
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTControlAudioSignalTerminationMessage):
-	// 					{
-	// 						bool terminated = message.get_bool_at(1, 0);
-
-	// 						parentVT->audioSignalTerminationEventDispatcher.invoke({ parentVT, terminated });
-
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							//! @todo process TAN
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::PreferredAssignmentCommand):
-	// 					{
-	// 						if (message.get_bool_at(1, 0))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Auxiliary Input Unit(s) (NAME or Model Identification Code) not valid");
-	// 						}
-	// 						if (message.get_bool_at(1, 1))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Function Object ID(S) not valid");
-	// 						}
-	// 						if (message.get_bool_at(1, 2))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Input Object ID(s) not valid");
-	// 						}
-	// 						if (message.get_bool_at(1, 3))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Duplicate Object ID of Auxiliary Function");
-	// 						}
-	// 						if (message.get_bool_at(1, 4))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Preferred Assignment Error - Other");
-	// 						}
-
-	// 						if (0 != message.get_uint8_at(1))
-	// 						{
-	// 							std::uint16_t faultyObjectID = message.get_uint16_at(2);
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[AUX-N]: Auxiliary Function Object ID of faulty assignment: " + isobus::to_string(faultyObjectID));
-	// 						}
-	// 						else
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Preferred Assignment OK");
-	// 							//! @todo load the preferred assignment into parentVT->assignedAuxiliaryInputDevices
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::AuxiliaryAssignmentTypeTwoCommand):
-	// 					{
-	// 						if (14 == message.get_data_length())
-	// 						{
-	// 							std::uint64_t isoName = message.get_uint64_at(1);
-	// 							bool storeAsPreferred = message.get_bool_at(9, 7);
-	// 							std::uint8_t functionType = (message.get_uint8_at(9) & 0x1F);
-	// 							std::uint16_t inputObjectID = message.get_uint16_at(10);
-	// 							std::uint16_t functionObjectID = message.get_uint16_at(12);
-
-	// 							bool hasError = false;
-	// 							bool isAlreadyAssigned = false;
-	// 							if (DEFAULT_NAME == isoName && 0x1F == functionType)
-	// 							{
-	// 								if (NULL_OBJECT_ID == functionObjectID)
-	// 								{
-	// 									for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
-	// 									{
-	// 										aux.functions.clear();
-	// 									}
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N] Unassigned all functions");
-	// 								}
-	// 								else if (NULL_OBJECT_ID == inputObjectID)
-	// 								{
-	// 									for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
-	// 									{
-	// 										for (auto iter = aux.functions.begin(); iter != aux.functions.end();)
-	// 										{
-	// 											if (iter->functionObjectID == functionObjectID)
-	// 											{
-	// 												aux.functions.erase(iter);
-	// 												if (storeAsPreferred)
-	// 												{
-	// 													//! @todo save preferred assignment to persistent configuration
-	// 												}
-	// 												CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N] Unassigned function " + isobus::to_string(static_cast<int>(functionObjectID)) + " from input " + isobus::to_string(static_cast<int>(inputObjectID)));
-	// 											}
-	// 											else
-	// 											{
-	// 												++iter;
-	// 											}
-	// 										}
-	// 									}
-	// 								}
-	// 							}
-	// 							else
-	// 							{
-	// 								auto result = std::find_if(parentVT->assignedAuxiliaryInputDevices.begin(), parentVT->assignedAuxiliaryInputDevices.end(), [&isoName](const AssignedAuxiliaryInputDevice &aux) {
-	// 									return aux.name == isoName;
-	// 								});
-	// 								if (result != std::end(parentVT->assignedAuxiliaryInputDevices))
-	// 								{
-	// 									if (static_cast<std::uint8_t>(AuxiliaryTypeTwoFunctionType::QuadratureBooleanMomentary) >= functionType)
-	// 									{
-	// 										AssignedAuxiliaryFunction assignment(functionObjectID, inputObjectID, static_cast<AuxiliaryTypeTwoFunctionType>(functionType));
-	// 										auto location = std::find(result->functions.begin(), result->functions.end(), assignment);
-	// 										if (location == std::end(result->functions))
-	// 										{
-	// 											result->functions.push_back(assignment);
-	// 											if (storeAsPreferred)
-	// 											{
-	// 												//! @todo save preferred assignment to persistent configuration
-	// 											}
-	// 											CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N]: Assigned function " + isobus::to_string(static_cast<int>(functionObjectID)) + " to input " + isobus::to_string(static_cast<int>(inputObjectID)));
-	// 										}
-	// 										else
-	// 										{
-	// 											hasError = true;
-	// 											isAlreadyAssigned = true;
-	// 											CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to missing auxiliary input device with name: " + isobus::to_string(isoName));
-	// 										}
-	// 									}
-	// 									else
-	// 									{
-	// 										hasError = true;
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to unsupported function type: " + isobus::to_string(functionType));
-	// 									}
-	// 								}
-	// 								else
-	// 								{
-	// 									hasError = true;
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Unable to store preferred assignment due to missing auxiliary input device with name: " + isobus::to_string(isoName));
-	// 								}
-	// 							}
-	// 							parentVT->send_auxiliary_function_assignment_response(functionObjectID, hasError, isAlreadyAssigned);
-	// 						}
-	// 						else
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Received AuxiliaryAssignmentTypeTwoCommand with wrong data length: " + isobus::to_string(message.get_data_length()) + " but expected 14.");
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::AuxiliaryInputTypeTwoStatusMessage):
-	// 					{
-	// 						std::uint16_t inputObjectID = message.get_uint16_at(1);
-	// 						std::uint16_t value1 = message.get_uint16_at(3);
-	// 						std::uint16_t value2 = message.get_uint16_at(5);
-	// 						/// @todo figure out how to best pass other status properties below to application
-	// 						/// @todo The standard requires us to not perform any auxiliary function when learn mode is active, so we probably want to let the application know about that somehow
-	// 						// bool learnModeActive = message.get_bool_at(7, 0);
-	// 						// bool inputActive = message.get_bool_at(7, 1); // Only in learn mode?
-	// 						// bool controlIsLocked = false;
-	// 						// bool interactionWhileLocked = false;
-	// 						if (parentVT->get_vt_version_supported(VTVersion::Version6))
-	// 						{
-	// 							// controlIsLocked = message.get_bool_at(7, 2);
-	// 							// interactionWhileLocked = message.get_bool_at(7, 3);
-	// 						}
-	// 						for (AssignedAuxiliaryInputDevice &aux : parentVT->assignedAuxiliaryInputDevices)
-	// 						{
-	// 							auto result = std::find_if(aux.functions.begin(), aux.functions.end(), [&inputObjectID](const AssignedAuxiliaryFunction &assignment) {
-	// 								return assignment.inputObjectID == inputObjectID;
-	// 							});
-	// 							if (aux.functions.end() != result)
-	// 							{
-	// 								parentVT->auxiliaryFunctionEventDispatcher.invoke({ *result, parentVT, value1, value2 });
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::AuxiliaryInputStatusTypeTwoEnableCommand):
-	// 					{
-	// 						std::uint16_t inputObjectID = message.get_uint16_at(1);
-	// 						bool shouldEnable = message.get_bool_at(3, 0);
-	// 						auto result = std::find_if(parentVT->ourAuxiliaryInputs.begin(), parentVT->ourAuxiliaryInputs.end(), [&inputObjectID](const std::pair<std::uint16_t, AuxiliaryInputState> &input) {
-	// 							return input.first == inputObjectID;
-	// 						});
-	// 						bool isInvalidObjectID = (result == std::end(parentVT->ourAuxiliaryInputs));
-	// 						if (!isInvalidObjectID)
-	// 						{
-	// 							result->second.enabled = shouldEnable;
-	// 						}
-	// 						parentVT->send_auxiliary_input_status_enable_response(inputObjectID, isInvalidObjectID ? false : shouldEnable, isInvalidObjectID);
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::VTStatusMessage):
-	// 					{
-	// 						parentVT->lastVTStatusTimestamp_ms = SystemTiming::get_timestamp_ms();
-	// 						parentVT->activeWorkingSetMasterAddress = message.get_uint8_at(1);
-	// 						parentVT->activeWorkingSetDataMaskObjectID = message.get_uint16_at(2);
-	// 						parentVT->activeWorkingSetSoftKeyMaskObjectID = message.get_uint16_at(4);
-	// 						parentVT->busyCodesBitfield = message.get_uint8_at(6);
-	// 						parentVT->currentCommandFunctionCode = message.get_uint8_at(7);
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::GetMemoryMessage):
-	// 					{
-	// 						if (StateMachineState::WaitForGetMemoryResponse == parentVT->state)
-	// 						{
-	// 							parentVT->connectedVTVersion = message.get_uint8_at(1);
-
-	// 							if (0 == message.get_uint8_at(2))
-	// 							{
-	// 								// There IS enough memory
-	// 								parentVT->set_state(StateMachineState::SendGetNumberSoftkeys);
-	// 							}
-	// 							else
-	// 							{
-	// 								parentVT->set_state(StateMachineState::Failed);
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Connection Failed Not Enough Memory");
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::GetNumberOfSoftKeysMessage):
-	// 					{
-	// 						if (StateMachineState::WaitForGetNumberSoftKeysResponse == parentVT->state)
-	// 						{
-	// 							parentVT->softKeyXAxisPixels = message.get_uint8_at(4);
-	// 							parentVT->softKeyYAxisPixels = message.get_uint8_at(5);
-	// 							parentVT->numberVirtualSoftkeysPerSoftkeyMask = message.get_uint8_at(6);
-	// 							parentVT->numberPhysicalSoftkeys = message.get_uint8_at(7);
-	// 							parentVT->set_state(StateMachineState::SendGetTextFontData);
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::GetTextFontDataMessage):
-	// 					{
-	// 						if (StateMachineState::WaitForGetTextFontDataResponse == parentVT->state)
-	// 						{
-	// 							parentVT->smallFontSizesBitfield = message.get_uint8_at(5);
-	// 							parentVT->largeFontSizesBitfield = message.get_uint8_at(6);
-	// 							parentVT->fontStylesBitfield = message.get_uint8_at(7);
-	// 							parentVT->set_state(StateMachineState::SendGetHardware);
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::GetHardwareMessage):
-	// 					{
-	// 						if (StateMachineState::WaitForGetHardwareResponse == parentVT->state)
-	// 						{
-	// 							if (message.get_uint8_at(2) <= static_cast<std::uint8_t>(GraphicMode::TwoHundredFiftySixColour))
-	// 							{
-	// 								parentVT->supportedGraphicsMode = static_cast<GraphicMode>(message.get_uint8_at(2));
-	// 							}
-	// 							parentVT->hardwareFeaturesBitfield = message.get_uint8_at(3);
-	// 							parentVT->xPixels = message.get_uint16_at(4);
-	// 							parentVT->yPixels = message.get_uint16_at(6);
-	// 							parentVT->lastObjectPoolIndex = 0;
-
-	// 							// Check if we need to ask for pool versions
-	// 							// Ony check the first pool, all pools are labeled the same per working set.
-	// 							if ((!parentVT->objectPools.empty()) &&
-	// 							    (!parentVT->objectPools[0].versionLabel.empty()))
-	// 							{
-	// 								parentVT->set_state(StateMachineState::SendGetVersions);
-	// 							}
-	// 							else
-	// 							{
-	// 								parentVT->set_state(StateMachineState::UploadObjectPool);
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::GetVersionsResponse):
-	// 					{
-	// 						if (StateMachineState::WaitForGetVersionsResponse == parentVT->state)
-	// 						{
-	// 							// See if the server returned any labels
-	// 							const std::uint8_t numberOfLabels = message.get_uint8_at(1);
-	// 							constexpr std::size_t LABEL_LENGTH = 7;
-
-	// 							if (numberOfLabels > 0)
-	// 							{
-	// 								// Check for label match
-	// 								bool labelMatched = false;
-	// 								const std::size_t remainingLength = (2 + (LABEL_LENGTH * numberOfLabels));
-
-	// 								if (message.get_data_length() >= remainingLength)
-	// 								{
-	// 									for (std::uint_fast8_t i = 0; i < numberOfLabels; i++)
-	// 									{
-	// 										char tempStringLabel[8] = { 0 };
-	// 										tempStringLabel[0] = message.get_uint8_at(2 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[1] = message.get_uint8_at(3 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[2] = message.get_uint8_at(4 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[3] = message.get_uint8_at(5 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[4] = message.get_uint8_at(6 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[5] = message.get_uint8_at(7 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[6] = message.get_uint8_at(8 + (LABEL_LENGTH * i));
-	// 										tempStringLabel[7] = '\0';
-	// 										std::string labelDecoded(tempStringLabel);
-	// 										std::string tempActualLabel(parentVT->objectPools[0].versionLabel);
-
-	// 										// Check if we need to manipulate the passed in label by padding with spaces
-	// 										while (tempActualLabel.size() < LABEL_LENGTH)
-	// 										{
-	// 											tempActualLabel.push_back(' ');
-	// 										}
-
-	// 										if (tempActualLabel.size() > LABEL_LENGTH)
-	// 										{
-	// 											tempActualLabel.resize(LABEL_LENGTH);
-	// 										}
-
-	// 										if (tempActualLabel == labelDecoded)
-	// 										{
-	// 											labelMatched = true;
-	// 											parentVT->set_state(StateMachineState::SendLoadVersion);
-	// 											CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: VT Server has a matching label for " + isobus::to_string(labelDecoded) + ". It will be loaded and upload will be skipped.");
-	// 											break;
-	// 										}
-	// 										else
-	// 										{
-	// 											CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: VT Server has a label for " + isobus::to_string(labelDecoded) + ". This version will be deleted.");
-	// 											const std::array<std::uint8_t, 7> deleteBuffer = {
-	// 												static_cast<std::uint8_t>(labelDecoded[0]),
-	// 												static_cast<std::uint8_t>(labelDecoded[1]),
-	// 												static_cast<std::uint8_t>(labelDecoded[2]),
-	// 												static_cast<std::uint8_t>(labelDecoded[3]),
-	// 												static_cast<std::uint8_t>(labelDecoded[4]),
-	// 												static_cast<std::uint8_t>(labelDecoded[5]),
-	// 												static_cast<std::uint8_t>(labelDecoded[6])
-	// 											};
-	// 											if (!parentVT->send_delete_version(deleteBuffer))
-	// 											{
-	// 												CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Failed to send the delete version message for label " + isobus::to_string(labelDecoded));
-	// 											}
-	// 										}
-	// 									}
-	// 									if (!labelMatched)
-	// 									{
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: No version label from the VT matched. Client will upload the pool and store it instead.");
-	// 										parentVT->set_state(StateMachineState::UploadObjectPool);
-	// 									}
-	// 								}
-	// 								else
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Get Versions Response length is not long enough. Message ignored.");
-	// 								}
-	// 							}
-	// 							else
-	// 							{
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: No version label from the VT matched. Client will upload the pool and store it instead.");
-	// 								parentVT->set_state(StateMachineState::UploadObjectPool);
-	// 							}
-	// 						}
-	// 						else
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Get Versions Response ignored!");
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::LoadVersionCommand):
-	// 					{
-	// 						if (StateMachineState::WaitForLoadVersionResponse == parentVT->state)
-	// 						{
-	// 							if (0 == message.get_uint8_at(5))
-	// 							{
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Loaded object pool version from VT non-volatile memory with no errors.");
-	// 								parentVT->set_state(StateMachineState::Connected);
-
-	// 								//! @todo maybe a better way available than relying on aux function callbacks registered?
-	// 								if (parentVT->auxiliaryFunctionEventDispatcher.get_listener_count() > 0)
-	// 								{
-	// 									if (parentVT->send_auxiliary_functions_preferred_assignment())
-	// 									{
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Sent preferred assignments after LoadVersionCommand.");
-	// 									}
-	// 									else
-	// 									{
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Failed to send preferred assignments after LoadVersionCommand.");
-	// 									}
-	// 								}
-	// 							}
-	// 							else
-	// 							{
-	// 								// At least one error is set
-	// 								if (message.get_bool_at(5, 0))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: File system error or corruption.");
-	// 								}
-	// 								if (message.get_bool_at(5, 1))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: Insufficient memory.");
-	// 								}
-	// 								if (message.get_bool_at(5, 2))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response error: Any other error.");
-	// 								}
-
-	// 								// Not sure what happened here... should be mostly impossible. Try to upload instead.
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Switching to pool upload instead.");
-	// 								parentVT->set_state(StateMachineState::UploadObjectPool);
-	// 							}
-	// 						}
-	// 						else
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response ignored!");
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::StoreVersionCommand):
-	// 					{
-	// 						if (StateMachineState::WaitForStoreVersionResponse == parentVT->state)
-	// 						{
-	// 							if (0 == message.get_uint8_at(5))
-	// 							{
-	// 								// Stored with no error
-	// 								parentVT->set_state(StateMachineState::Connected);
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Stored object pool with no error.");
-	// 							}
-	// 							else
-	// 							{
-	// 								// At least one error is set
-	// 								if (message.get_bool_at(5, 0))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Version label is not correct.");
-	// 								}
-	// 								if (message.get_bool_at(5, 1))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Insufficient memory.");
-	// 								}
-	// 								if (message.get_bool_at(5, 2))
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response error: Any other error.");
-	// 								}
-	// 							}
-	// 						}
-	// 						else
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response ignored!");
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::DeleteVersionCommand):
-	// 					{
-	// 						if (0 == message.get_uint8_at(5))
-	// 						{
-	// 							CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Delete Version Response OK!");
-	// 						}
-	// 						else
-	// 						{
-	// 							if (message.get_bool_at(5, 1))
-	// 							{
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Version label is not correct, or unknown.");
-	// 							}
-	// 							if (message.get_bool_at(5, 3))
-	// 							{
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Any other error.");
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-
-	// 					case static_cast<std::uint8_t>(Function::EndOfObjectPoolMessage):
-	// 					{
-	// 						if (StateMachineState::WaitForEndOfObjectPoolResponse == parentVT->state)
-	// 						{
-	// 							bool anyErrorInPool = message.get_bool_at(1, 0);
-	// 							bool vtRanOutOfMemory = message.get_bool_at(1, 1);
-	// 							bool otherErrors = message.get_bool_at(1, 3);
-	// 							std::uint16_t parentObjectIDOfFaultyObject = message.get_uint16_at(2);
-	// 							std::uint16_t objectIDOfFaultyObject = message.get_uint16_at(4);
-	// 							std::uint8_t objectPoolErrorBitmask = message.get_uint8_at(6);
-
-	// 							if ((!anyErrorInPool) &&
-	// 							    (0 == objectPoolErrorBitmask))
-	// 							{
-	// 								// Clear scaling buffers
-	// 								for (auto &objectPool : parentVT->objectPools)
-	// 								{
-	// 									objectPool.scaledObjectPool.clear();
-	// 								}
-
-	// 								// Check if we need to store this pool
-	// 								if (!parentVT->objectPools[0].versionLabel.empty())
-	// 								{
-	// 									parentVT->set_state(StateMachineState::SendStoreVersion);
-	// 								}
-	// 								else
-	// 								{
-	// 									parentVT->set_state(StateMachineState::Connected);
-	// 								}
-	// 								//! @todo maybe a better way available than relying on aux function callbacks registered?
-	// 								if (parentVT->auxiliaryFunctionEventDispatcher.get_listener_count() > 0)
-	// 								{
-	// 									if (parentVT->send_auxiliary_functions_preferred_assignment())
-	// 									{
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Debug, "[AUX-N]: Sent preferred assignments after EndOfObjectPoolMessage.");
-	// 									}
-	// 									else
-	// 									{
-	// 										CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[AUX-N]: Failed to send preferred assignments after EndOfObjectPoolMessage.");
-	// 									}
-	// 								}
-	// 							}
-	// 							else
-	// 							{
-	// 								parentVT->set_state(StateMachineState::Failed);
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Error in end of object pool message." + std::string("Faulty Object ") + isobus::to_string(static_cast<int>(objectIDOfFaultyObject)) + std::string(" Faulty Object Parent ") + isobus::to_string(static_cast<int>(parentObjectIDOfFaultyObject)) + std::string(" Pool error bitmask value ") + isobus::to_string(static_cast<int>(objectPoolErrorBitmask)));
-	// 								if (vtRanOutOfMemory)
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Ran out of memory");
-	// 								}
-	// 								if (otherErrors)
-	// 								{
-	// 									CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Reported other errors in EOM response");
-	// 								}
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-	// 				}
-	// 			}
-	// 			break;
-
-	// 			case static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal):
-	// 			{
-	// 				switch (message.get_uint8_at(0))
-	// 				{
-	// 					case static_cast<std::uint8_t>(Function::AuxiliaryInputTypeTwoMaintenanceMessage):
-	// 					{
-	// 						std::uint16_t modelIdentificationCode = message.get_uint16_at(1);
-	// 						bool ready = message.get_uint8_at(3);
-
-	// 						if (ready)
-	// 						{
-	// 							auto result = std::find_if(parentVT->assignedAuxiliaryInputDevices.begin(), parentVT->assignedAuxiliaryInputDevices.end(), [&modelIdentificationCode](const AssignedAuxiliaryInputDevice &aux) {
-	// 								return aux.modelIdentificationCode == modelIdentificationCode;
-	// 							});
-	// 							if (result == std::end(parentVT->assignedAuxiliaryInputDevices))
-	// 							{
-	// 								AssignedAuxiliaryInputDevice inputDevice{ message.get_source_control_function()->get_NAME().get_full_name(), modelIdentificationCode, {} };
-	// 								parentVT->assignedAuxiliaryInputDevices.push_back(inputDevice);
-	// 								CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[AUX-N]: New auxiliary input device with name: " + isobus::to_string(inputDevice.name) + " and model identification code: " + isobus::to_string(modelIdentificationCode));
-	// 							}
-	// 						}
-	// 					}
-	// 					break;
-	// 				}
-	// 			}
-	// 			break;
-
-	// 			default:
-	// 			{
-	// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Client unknown message: " + isobus::to_string(static_cast<int>(message.get_identifier().get_parameter_group_number())));
-	// 			}
-	// 			break;
-	// 		}
-	// 	}
-	// 	else
-	// 	{
-	// 		CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: VT-ECU Client message invalid");
-	// 	}
-	// }
-
+	
 }
 
-impl Drop for VirtualTerminalClient {
+impl Drop for VirtualTerminalClient<'_> {
     fn drop(&mut self) {
         self.terminate();
     }
 }
 
 /// A struct for storing information of a VT key input event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTKeyEvent {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
 	pub object_id: u16, //< The object ID
@@ -1622,7 +1552,7 @@ pub struct VTKeyEvent {
 }
 
 /// @brief A struct for storing information of a VT pointing event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTPointingEvent {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
 	pub x_pos: u16, //< The x position
@@ -1632,7 +1562,7 @@ pub struct VTPointingEvent {
 }
 
 /// @brief A struct for storing information of a VT input object selection event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTSelectInputObjectEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1642,7 +1572,7 @@ pub struct VTSelectInputObjectEvent
 }
 
 /// @brief A struct for storing information of a VT ESC message event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTESCMessageEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1651,7 +1581,7 @@ pub struct VTESCMessageEvent
 }
 
 /// @brief A struct for storing information of a VT change numeric value event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTChangeNumericValueEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1660,7 +1590,7 @@ pub struct VTChangeNumericValueEvent
 }
 
 /// @brief A struct for storing information of a VT change active mask event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTChangeActiveMaskEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1674,7 +1604,7 @@ pub struct VTChangeActiveMaskEvent
 }
 
 /// @brief A struct for storing information of a VT change soft key mask event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTChangeSoftKeyMaskEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1687,7 +1617,7 @@ pub struct VTChangeSoftKeyMaskEvent
 }
 
 /// @brief A struct for storing information of a VT change string value event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTChangeStringValueEvent
 {
 // 	std::string value; ///< The value
@@ -1696,7 +1626,7 @@ pub struct VTChangeStringValueEvent
 }
 
 /// @brief A struct for storing information of a VT on user-layout hide/show event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTUserLayoutHideShowEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1705,7 +1635,7 @@ pub struct VTUserLayoutHideShowEvent
 }
 
 /// @brief A struct for storing information of a VT control audio signal termination event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct VTAudioSignalTerminationEvent
 {
 	// VirtualTerminalClient *parentPointer; ///< A pointer to the parent VT client
@@ -1713,7 +1643,7 @@ pub struct VTAudioSignalTerminationEvent
 }
 
 /// @brief A struct for storing information of an auxilary function event
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct AuxiliaryFunctionEvent
 {
 	// AssignedAuxiliaryFunction function; ///< The function
@@ -1858,12 +1788,26 @@ pub enum MaskLockState {
 
 /// The different key activation codes that a button press can generate
 #[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum KeyActivationCode {
     ButtonUnlatchedOrReleased = 0, //< Button is released
     ButtonPressedOrLatched = 1, //< Button is pressed
     ButtonStillHeld = 2, //< Button is being held down (sent cyclically)
     ButtonPressAborted = 3, //< Press was aborted (user navigated away from the button and did not release it)
+}
+
+impl TryFrom<u8> for KeyActivationCode {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+			0 => Ok(Self::ButtonUnlatchedOrReleased),
+			1 => Ok(Self::ButtonPressedOrLatched),
+			2 => Ok(Self::ButtonStillHeld),
+			3 => Ok(Self::ButtonPressAborted),
+			_ => Err(()),
+		}
+    }
 }
 
 /// Enumerates the errors that can be present in an ESC message
@@ -1948,7 +1892,7 @@ pub enum AuxiliaryTypeTwoFunctionType {
 /// Enumerates the multiplexor byte values for VT commands
 #[repr(u8)]
 #[derive(Debug, PartialEq)]
-enum Function {
+enum VTFunction {
 	SoftKeyActivationMessage = 0x00,
 	ButtonActivationMessage = 0x01,
 	PointingEventMessage = 0x02,
@@ -2021,5 +1965,88 @@ enum Function {
 	GetVersionsResponse = 0xE0,
 	UnsupportedVTFunctionMessage = 0xFD,
 	VTStatusMessage = 0xFE,
-	WorkingSetMaintenanceMessage = 0xFF
+	WorkingSetMaintenanceMessage = 0xFF,
+}
+
+impl TryFrom<u8> for VTFunction {
+	type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+			0x00 => Ok(Self::SoftKeyActivationMessage),
+			0x01 => Ok(Self::ButtonActivationMessage),
+			0x02 => Ok(Self::PointingEventMessage),
+			0x03 => Ok(Self::VTSelectInputObjectMessage),
+			0x04 => Ok(Self::VTESCMessage),
+			0x05 => Ok(Self::VTChangeNumericValueMessage),
+			0x06 => Ok(Self::VTChangeActiveMaskMessage),
+			0x07 => Ok(Self::VTChangeSoftKeyMaskMessage),
+			0x08 => Ok(Self::VTChangeStringValueMessage),
+			0x09 => Ok(Self::VTOnUserLayoutHideShowMessage),
+			0x0A => Ok(Self::VTControlAudioSignalTerminationMessage),
+			0x11 => Ok(Self::ObjectPoolTransferMessage),
+			0x12 => Ok(Self::EndOfObjectPoolMessage),
+			0x20 => Ok(Self::AuxiliaryAssignmentTypeOneCommand),
+			0x21 => Ok(Self::AuxiliaryInputTypeOneStatus),
+			0x22 => Ok(Self::PreferredAssignmentCommand),
+			0x23 => Ok(Self::AuxiliaryInputTypeTwoMaintenanceMessage),
+			0x24 => Ok(Self::AuxiliaryAssignmentTypeTwoCommand),
+			0x25 => Ok(Self::AuxiliaryInputStatusTypeTwoEnableCommand),
+			0x26 => Ok(Self::AuxiliaryInputTypeTwoStatusMessage),
+			0x27 => Ok(Self::AuxiliaryCapabilitiesRequest),
+			0x90 => Ok(Self::SelectActiveWorkingSet),
+			0x92 => Ok(Self::ESCCommand),
+			0xA0 => Ok(Self::HideShowObjectCommand),
+			0xA1 => Ok(Self::EnableDisableObjectCommand),
+			0xA2 => Ok(Self::SelectInputObjectCommand),
+			0xA3 => Ok(Self::ControlAudioSignalCommand),
+			0xA4 => Ok(Self::SetAudioVolumeCommand),
+			0xA5 => Ok(Self::ChangeChildLocationCommand),
+			0xA6 => Ok(Self::ChangeSizeCommand),
+			0xA7 => Ok(Self::ChangeBackgroundColourCommand),
+			0xA8 => Ok(Self::ChangeNumericValueCommand),
+			0xA9 => Ok(Self::ChangeEndPointCommand),
+			0xAA => Ok(Self::ChangeFontAttributesCommand),
+			0xAB => Ok(Self::ChangeLineAttributesCommand),
+			0xAC => Ok(Self::ChangeFillAttributesCommand),
+			0xAD => Ok(Self::ChangeActiveMaskCommand),
+			0xAE => Ok(Self::ChangeSoftKeyMaskCommand),
+			0xAF => Ok(Self::ChangeAttributeCommand),
+			0xB0 => Ok(Self::ChangePriorityCommand),
+			0xB1 => Ok(Self::ChangeListItemCommand),
+			0xB2 => Ok(Self::DeleteObjectPoolCommand),
+			0xB3 => Ok(Self::ChangeStringValueCommand),
+			0xB4 => Ok(Self::ChangeChildPositionCommand),
+			0xB5 => Ok(Self::ChangeObjectLabelCommand),
+			0xB6 => Ok(Self::ChangePolygonPointCommand),
+			0xB7 => Ok(Self::ChangePolygonScaleCommand),
+			0xB8 => Ok(Self::GraphicsContextCommand),
+			0xB9 => Ok(Self::GetAttributeValueMessage),
+			0xBA => Ok(Self::SelectColourMapCommand),
+			0xBB => Ok(Self::IdentifyVTMessage),
+			0xBC => Ok(Self::ExecuteExtendedMacroCommand),
+			0xBD => Ok(Self::LockUnlockMaskCommand),
+			0xBE => Ok(Self::ExecuteMacroCommand),
+			0xC0 => Ok(Self::GetMemoryMessage),
+			0xC1 => Ok(Self::GetSupportedWidecharsMessage),
+			0xC2 => Ok(Self::GetNumberOfSoftKeysMessage),
+			0xC3 => Ok(Self::GetTextFontDataMessage),
+			0xC4 => Ok(Self::GetWindowMaskDataMessage),
+			0xC5 => Ok(Self::GetSupportedObjectsMessage),
+			0xC7 => Ok(Self::GetHardwareMessage),
+			0xD0 => Ok(Self::StoreVersionCommand),
+			0xD1 => Ok(Self::LoadVersionCommand),
+			0xD2 => Ok(Self::DeleteVersionCommand),
+			0xD3 => Ok(Self::ExtendedGetVersionsMessage),
+			0xD4 => Ok(Self::ExtendedStoreVersionCommand),
+			0xD5 => Ok(Self::ExtendedLoadVersionCommand),
+			0xD6 => Ok(Self::ExtendedDeleteVersionCommand),
+			0xDF => Ok(Self::GetVersionsMessage),
+			0xE0 => Ok(Self::GetVersionsResponse),
+			0xFD => Ok(Self::UnsupportedVTFunctionMessage),
+			0xFE => Ok(Self::VTStatusMessage),
+			0xFF => Ok(Self::WorkingSetMaintenanceMessage),
+			_ => Err(())
+		}
+    }
 }

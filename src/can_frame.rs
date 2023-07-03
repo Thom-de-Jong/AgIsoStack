@@ -3,7 +3,7 @@
 
 use crate::{Id, ExtendedId};
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CanFrame {
     id: Id,
     dlc: usize,
@@ -41,7 +41,7 @@ impl CanFrame {
     }
 
     pub fn data(&self) -> &[u8] {
-        &self.data
+        self.data.as_slice()
     }
 }
 

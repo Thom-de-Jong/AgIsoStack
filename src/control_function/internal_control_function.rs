@@ -6,30 +6,20 @@ use crate::{Address, name::Name, CanNetworkManager};
 use super::AddressClaimStateMachine;
 
 /// Lets the network manager know if any ICF changed address since the last update.
-static ANY_CHANGED_ADDRESS: bool = false;
+// static ANY_CHANGED_ADDRESS: bool = false;
 
-// TODO: make fields private
 pub struct InternalControlFunction {
-    // network_manager: &'a mut CanNetworkManager<'a>,
-
-    object_changed_address_since_last_update: bool,
+    // object_changed_address_since_last_update: bool,
     state_machine: AddressClaimStateMachine,
 }
 
 impl InternalControlFunction {
-    pub fn new(desired_name: Name, preferred_address: Address, network_manager: &mut CanNetworkManager) -> Option<InternalControlFunction> {
-        let state_machine = AddressClaimStateMachine::new(desired_name, preferred_address);
-
-        if let Some(state_machine) = state_machine {
-            let icf = InternalControlFunction {
-                // network_manager,
-                object_changed_address_since_last_update: false,
+    pub fn new(desired_name: Name, preferred_address: Address) -> Option<InternalControlFunction> {
+        if let Some(state_machine) = AddressClaimStateMachine::new(desired_name, preferred_address) {
+            Some(InternalControlFunction {
+                // object_changed_address_since_last_update: false,
                 state_machine,
-            };
-
-            // network_manager.add_global_parameter_group_number_callback(Pa, callback)
-
-            Some(icf)
+            })
         } else {
             None
         }
@@ -82,33 +72,33 @@ impl InternalControlFunction {
     //     INTERNAL_CONTROL_FUNCTION_LIST.len()
     // }
 
-	/// Lets network manager know a control function changed address recently.
-	/// These tell the network manager when the address table needs to be explicitly
-	/// updated for an internal control function claiming a new address.
-	/// Other CF types are handled in Rx message processing.
-	pub fn any_internal_control_function_changed_address() -> bool { // (CANLibBadge<CANNetworkManager>)
-        ANY_CHANGED_ADDRESS//.load(core::sync::atomic::Ordering::Relaxed)
-    }
+	// /// Lets network manager know a control function changed address recently.
+	// /// These tell the network manager when the address table needs to be explicitly
+	// /// updated for an internal control function claiming a new address.
+	// /// Other CF types are handled in Rx message processing.
+	// pub fn any_internal_control_function_changed_address() -> bool { // (CANLibBadge<CANNetworkManager>)
+    //     ANY_CHANGED_ADDRESS//.load(core::sync::atomic::Ordering::Relaxed)
+    // }
 
-	/// Used to determine if the internal control function changed address since the last network manager update.
-	pub fn changed_address_since_last_update(&self) -> bool { // (CANLibBadge<CANNetworkManager>)
-        self.object_changed_address_since_last_update
-    }
+	// /// Used to determine if the internal control function changed address since the last network manager update.
+	// pub fn changed_address_since_last_update(&self) -> bool { // (CANLibBadge<CANNetworkManager>)
+    //     self.object_changed_address_since_last_update
+    // }
 
-	/// Used by the network manager to tell the ICF that the address claim state machine needs to process a J1939 command to move address.
-	pub fn process_commanded_address(&self, commanded_address: u8) { // (CANLibBadge<CANNetworkManager>)
-        // self.state_machine.process_commanded_address(commanded_address);
-    }
+	// /// Used by the network manager to tell the ICF that the address claim state machine needs to process a J1939 command to move address.
+	// pub fn process_commanded_address(&self, commanded_address: u8) { // (CANLibBadge<CANNetworkManager>)
+    //     // self.state_machine.process_commanded_address(commanded_address);
+    // }
 
-	/// Updates all address claim state machines.
-    pub fn update_address_claiming() { // (CANLibBadge<CANNetworkManager>)
-        // ANY_CHANGED_ADDRESS = false;
-        // for &cf in INTERNAL_CONTROL_FUNCTION_LIST.iter() {
-        //     cf.update();
-        // }
-    }
+	// /// Updates all address claim state machines.
+    // pub fn update_address_claiming() { // (CANLibBadge<CANNetworkManager>)
+    //     // ANY_CHANGED_ADDRESS = false;
+    //     // for &cf in INTERNAL_CONTROL_FUNCTION_LIST.iter() {
+    //     //     cf.update();
+    //     // }
+    // }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, network_manager: &CanNetworkManager) {
 		// let previous_address = self.address;
         // self.object_changed_address_since_last_update = false;
         // self.state_machine.update();

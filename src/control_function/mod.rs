@@ -12,6 +12,27 @@ pub use external_control_function::ExternalControlFunction;
 
 pub struct PartneredControlFunction(ExternalControlFunction);
 
+impl PartneredControlFunction {
+    pub fn new(_: u8, _filters: &[NameFilter]) -> PartneredControlFunction {
+        PartneredControlFunction(
+            ExternalControlFunction
+            {
+                address: Address::GLOBAL,
+                name: Name::default(),
+                object_changed_address_since_last_update: false,
+            }
+        )
+    }
+
+    pub fn address(&self) -> Address {
+        self.0.address
+    }
+    
+    pub fn name(&self) -> Name {
+        self.0.name
+    }
+}
+
 pub enum ControlFunction {
     Internal(InternalControlFunction), //< The control function is part of our stack and can address claim.
     External(ExternalControlFunction), //< The control function is some other device on the bus.

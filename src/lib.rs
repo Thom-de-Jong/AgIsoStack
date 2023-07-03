@@ -44,7 +44,7 @@ pub use can_network_manager::CanNetworkManager;
 
 /// Defines all the CAN frame priorities that can be encoded in a frame ID
 #[repr(u8)]
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum CanPriority {
 	PriorityHighest0 = 0, //< Highest CAN priority
 	Priority1 = 1, //< Priority highest - 1
@@ -56,7 +56,22 @@ pub enum CanPriority {
 	PriorityLowest7 = 7, //< The lowest priority
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+impl From<u8> for CanPriority {
+    fn from(val: u8) -> Self {
+        match val {
+            0 => Self::PriorityHighest0,
+            1 => Self::Priority1,
+            2 => Self::Priority2,
+            3 => Self::Priority3,
+            4 => Self::Priority4,
+            5 => Self::Priority5,
+            7 => Self::PriorityLowest7,
+            _ => Self::PriorityDefault6,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Address(pub u8);
 impl Address {
     pub const NULL: Address = Address(0xFE);

@@ -1,4 +1,5 @@
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Default, Debug)]
 pub struct StandardId(u32);
 
 impl StandardId {
@@ -37,7 +38,7 @@ impl StandardId {
 }
 
 /// Extended 29-bit CAN Identifier (`0..=1FFF_FFFF`).
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Default, Debug)]
 pub struct ExtendedId(u32);
 
 impl ExtendedId {
@@ -82,7 +83,7 @@ impl ExtendedId {
 }
 
 /// A CAN Identifier (standard or extended).
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Id {
     Standard(StandardId), //< Standard 11-bit Identifier (`0..=0x7FF`).
     Extended(ExtendedId), //< Extended 29-bit Identifier (`0..=0x1FFF_FFFF`).

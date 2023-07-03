@@ -7,7 +7,6 @@ use crate::{Address, name::Name};
 // TODO: make fields private
 pub struct ExternalControlFunction {
     pub address: Address,
-    pub can_port: u8,
     pub name: Name,
     pub object_changed_address_since_last_update: bool,
 }
@@ -15,10 +14,6 @@ pub struct ExternalControlFunction {
 impl ExternalControlFunction {
     pub fn address(&self) -> Address {
         self.address
-    }
-    
-    pub fn can_port(&self) -> u8 {
-        self.can_port
     }
     
     pub fn name(&self) -> Name {

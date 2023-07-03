@@ -1,13 +1,14 @@
 
 use alloc::{vec::Vec, collections::BTreeMap};
+use heapless::Deque;
 
 use crate::{
     control_function::{ControlFunction, InternalControlFunction},
-    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, can_message::{self, CanMessageProcessor}, CanMessage,
+    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, CanMessage,
     // transport_protocol_manager::TransportProtocolManager
 };
 
-use core::cell::RefCell;
+use core::{cell::RefCell, iter::Peekable};
 
 const MAX_CAN_FRAMES_SEND_PER_PROCESS: u8 = 255;
 
@@ -18,40 +19,41 @@ pub struct CanNetworkManager<'a> {
     // etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
 	// fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
 
-    control_functions: Vec<RefCell<&'a dyn CanMessageProcessor>>,
+    // can_message_processors: Vec<RefCell<&'a dyn CanMessageProcessor>>,
 
-    send_can_frame_buffer: Vec<CanFrame>,
-    send_can_frame_callback: Option<fn(CanFrame)>,
+    // send_can_frame_buffer: Vec<CanFrame>,
+    send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
 
-    can_message_to_send: Option<CanMessage>,
+    // can_message_to_send: Option<CanMessage<'a>>,
+
+    can_message_received: Deque<CanMessage, 8>,
     
-	global_parameter_group_number_callbacks: BTreeMap<u16, &'a dyn Fn(&CanMessage)>,
+	// global_parameter_group_number_callbacks: BTreeMap<u16, &'a dyn Fn(&CanMessage)>,
 }
 
 impl<'a> CanNetworkManager<'a> {
-    pub fn new() -> CanNetworkManager<'static> {
+    pub fn new() -> CanNetworkManager<'a> {
         CanNetworkManager {
             // tp_manager: TransportProtocolManager::new(),
 
-            control_functions: Vec::new(),
+            // can_message_processors: Vec::new(),
 
-            send_can_frame_buffer: Vec::new(),
+            // send_can_frame_buffer: Vec::new(),
             send_can_frame_callback: None,
 
-            can_message_to_send: None,
-			global_parameter_group_number_callbacks: BTreeMap::new(),
+
+            // can_message_to_send: None,
+            can_message_received: Deque::new(),
+
+			// global_parameter_group_number_callbacks: BTreeMap::new(),
         }
     }
 
-    // pub fn add_control_function(&self, cf: &'a InternalControlFunction) {
-    //     let _ = self.control_functions.borrow_mut().push(cf);
+    // pub fn add_can_message_processor(&mut self, processor: &'a dyn CanMessageProcessor) {
+    //     self.can_message_processors.push(RefCell::new(processor));
     // }
 
-    // pub fn send_can_message(&self, pgn: ParameterGroupNumber, data: &[u8], src: &InternalControlFunction, dest: &PartneredControlFunction, priority: CanPriority) {
     pub fn send_can_message(&self, message: CanMessage) {
-            // TODO: Build id
-        let id = ExtendedId::MAX;
-
         match message.len() {
             0..=8 => {
                 if let Ok(frame) = message.as_can_frame() {
@@ -76,10 +78,10 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn process_can_message(&self, message: &CanMessage) {
+    pub fn process_can_message(&self, message: CanMessage) {
         // Log all CAN traffic on the bus.
         #[cfg(feature = "log_all_can_read")]
-        log::debug!("Read: {:?}", &frame);
+        log::debug!("Read: {:?}", &message);
 
         // Only listen to global messages and messages ment for us.
         // let cfs = self.control_functions.borrow();
@@ -88,15 +90,17 @@ impl<'a> CanNetworkManager<'a> {
         // }
 
         // Log only CAN traffic ment for us.
-        // #[cfg(feature = "log_can_read")]
-        // log::debug!("read: {:?}", &frame);
+        #[cfg(feature = "log_can_read")]
+        log::debug!("read: {:?}", &message);
 
-
+        // Store message in buffer.
+        
 
         // Check if global
-        for (pgn, &callback) in &self.global_parameter_group_number_callbacks {
-            callback(message);
-        }
+        // for (pgn, &callback) in &self.global_parameter_group_number_callbacks {
+        //     callback(message);
+        // }
+
 
             
 
@@ -119,25 +123,27 @@ impl<'a> CanNetworkManager<'a> {
         // Check if TP or ETP message
         // Give it to the handlers
 
-        let message = Some(CanMessage::new(frame.id(), frame.data()));
+        let message = CanMessage::new_from_id(frame.id(), frame.data());
+        if let Err(_) = self.can_message_received.push_back(message) {
+            log::error!("can_message_received overflow");
+        }
 
         // If a message is complete
-        if let Some(message) = message {
-            self.process_can_message(&message);
-        }
+        // if let Some(message) = message {
+        //     self.process_can_message(message);
+        // }
     }
 
-    pub fn send_can_frame_callback(&mut self, callback: fn(CanFrame)) {
+    pub fn send_can_frame_callback(&mut self, callback: &'a dyn Fn(CanFrame)) {
         self.send_can_frame_callback = Some(callback);
     }
 
     
-	pub fn add_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber, callback: &impl Fn(&CanMessage)) {
-	    self.global_parameter_group_number_callbacks.insert(pgn as u16, callback) ;
-	}
+	// pub fn add_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber, callback: &impl Fn(&CanMessage)) {
+	//     self.global_parameter_group_number_callbacks.insert(pgn as u16, callback) ;
+	// }
 
-    pub fn remove_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber) {
-		let _ = self.global_parameter_group_number_callbacks.remove(&(pgn as u16));
-	}
+    // pub fn remove_global_parameter_group_number_callback(&mut self, pgn: ParameterGroupNumber) {
+	// 	let _ = self.global_parameter_group_number_callbacks.remove(&(pgn as u16));
+	// }
 }
-

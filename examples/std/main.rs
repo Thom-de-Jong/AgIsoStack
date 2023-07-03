@@ -1,5 +1,5 @@
 
-use std::{thread, time::Duration, sync::mpsc::*};
+use std::{thread, time::Duration, sync::mpsc::*, cell::RefCell, rc::Rc};
 
 use agisostack::{
     Address,
@@ -49,9 +49,11 @@ fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     while can_driver.is_valid() {
         if let Some(frame) = can_driver.read() {
+            log::debug!("Reveived: {:?}", frame);
             let _ = tx.send(frame);
         }
         if let Ok(frame) = rx.try_recv() {
+            log::debug!("Send: {:?}", frame);
             let _ = can_driver.write(&frame);
         }
     }
@@ -66,8 +68,11 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     // Bind a callback to the network manager to be called when we send a can frame.
     // This is the "glue" between the network manager and the CAN Driver.
-    network_manager.send_can_frame_callback(|f| { let _ = tx.send(f); });
+    let callback = |f| { let _ = tx.send(f); };
+    network_manager.send_can_frame_callback(&callback);
 
+
+    // let network_manager: Rc<RefCell<CanNetworkManager>> = Rc::new(RefCell::new(network_manager));
 
 
     // Create a new name builder.
@@ -103,8 +108,8 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     let vt_name_filters = vec![filter_virtual_terminal];
     
     // TODO: Replace .unwrap()
-    let test_internal_ecu = InternalControlFunction::new(test_device_name, test_device_address, &mut network_manager).unwrap();
-    let test_partner_vt = ControlFunction::new_partnered_control_function(0, &vt_name_filters).unwrap();
+    let test_internal_ecu = InternalControlFunction::new(test_device_name, test_device_address).unwrap();
+    let test_partner_vt = PartneredControlFunction::new(0, &vt_name_filters);
 
     // Create the channel used to send VTKeyEvents from the callback to this task.
     // event_tx and event_rx have to outlive test_virtual_terminal_client, so we define them first.
@@ -120,14 +125,19 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // Bind callbacks to VTC events.
     // These callbacks will provide us with event driven notifications of button presses from the stack.
     // Using a channel we can send events to the isobus_task to be processed.
-    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(|e| { let _ = event_tx.clone().send(e); });
-    let _ = test_virtual_terminal_client.add_vt_button_event_listener(|e| { let _ = event_tx.clone().send(e); });
+    let callback = |e| { let _ = event_tx.clone().send(e); };
+    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&callback);
+    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&callback);
 
     // Initialize the VTC.
-    test_virtual_terminal_client.initialize(&mut network_manager);
+    test_virtual_terminal_client.initialize();
 
     // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
     let mut example_number_output: u32 = 214748364;
+
+    test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+    test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+
 
     loop {
         // Receive a CanFrame without blocking
@@ -142,11 +152,11 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
                     match event.object_id {
                         PLUS_BUTTON => {
                             example_number_output += 1;
-                            test_virtual_terminal_client.send_change_numeric_value(BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+                            test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
                         },
                         MINUS_BUTTON => {
                             example_number_output -= 1;
-                            test_virtual_terminal_client.send_change_numeric_value(BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
+                            test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
                         },
                         ALARM_SOFT_KEY => {
                             // TestVirtualTerminalClient->send_change_active_mask(example_WorkingSet, example_AlarmMask);
@@ -162,7 +172,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
         }
 
         // Update the VirtualTerminalClient
-        test_virtual_terminal_client.update();
+        test_virtual_terminal_client.update(&network_manager);
     }
     
     // TestVirtualTerminalClient->terminate();
