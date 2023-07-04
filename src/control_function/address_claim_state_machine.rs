@@ -20,7 +20,7 @@ enum State {
 
 impl Default for State {
     fn default() -> Self {
-        State::None
+        Self::None
     }
 }
 
@@ -35,8 +35,7 @@ pub struct AddressClaimStateMachine {
 }
 
 impl AddressClaimStateMachine {
-	/// The constructor of the state machine class
-	pub fn new(desired_name: Name, preferred_address: Address) -> Option<AddressClaimStateMachine> {
+	pub fn new(desired_name: Name, preferred_address: Address) -> Option<Self> {
         if preferred_address == Address::GLOBAL || preferred_address == Address::NULL {
             return None;
         }
@@ -45,7 +44,7 @@ impl AddressClaimStateMachine {
         let mut rng = fastrand::Rng::with_seed(timestamp.as_millis() as u64);
 		let random_claim_delay = Duration::from_micros(rng.u64(..=255) * 600); // Defined by ISO11783-5
 
-        Some(AddressClaimStateMachine {
+        Some(Self {
             name: desired_name,
             current_state: State::default(),
             timestamp,
@@ -60,7 +59,7 @@ impl AddressClaimStateMachine {
         self.name
     }
 
-	pub fn set_is_enabled(&mut self, value: bool) {
+	pub fn enable(&mut self, value: bool) {
 		self.is_enabled = value;
 	}
 
@@ -106,8 +105,9 @@ impl AddressClaimStateMachine {
 		handled
     }
 
-	pub fn update(&self, network_manager: &CanNetworkManager) {
-		if !self.is_enabled { self.current_state = State::None; return false }
+	/// Update based on the current state
+	pub fn update(&mut self, network_manager: &CanNetworkManager) {
+		if !self.is_enabled { self.current_state = State::None; }
 
 		match self.current_state {
 			State::None => {
@@ -120,10 +120,9 @@ impl AddressClaimStateMachine {
 				}
 			}
 			State::SendRequestForClaim => {
-				if self.send_request_to_claim(network_manager) {
-					self.timestamp = TimeDriver::time_elapsed();
-					self.current_state = State::WaitForRequestContentionPeriod;
-				}
+				self.send_request_to_claim(network_manager);
+				self.timestamp = TimeDriver::time_elapsed();
+				self.current_state = State::WaitForRequestContentionPeriod;
 			}
 			State::WaitForRequestContentionPeriod => {
 				// Wait for other Control Functions to respond.
@@ -159,53 +158,26 @@ impl AddressClaimStateMachine {
 				}
 			}
 			State::SendPreferredAddressClaim => {
-				if self.send_address_claim(network_manager) {
-					log::debug!("[AC]: Internal control function {} has claimed address {}", self.name, self.claimed_address);
-					self.current_state = State::AddressClaimingComplete;
-				} else {
-					self.current_state = State::None;
-				}
+				self.send_address_claim(network_manager);
+				log::debug!("[AC]: Internal control function {} has claimed address {}", self.name, self.claimed_address);
+				self.current_state = State::AddressClaimingComplete;
 			}
 			State::SendArbitraryAddressClaim => {
-
 				// Request a free address from the network manager.
 				match network_manager.free_address() {
 					Some(address) => {
-						// CANStackLogger::debug("[AC]: Internal control function %016llx could not use the preferred address, but has claimed address %u on channel %u",
-		// 				                      m_isoname.get_full_name(),
-		// 				                      i,
-		// 				                      m_portIndex);
-		// 				set_current_state(State::AddressClaimingComplete);
+						log::debug!("[AC]: Internal control function {} could not use the preferred address, but has claimed address {}", self.name, address);
+						self.current_state = State::AddressClaimingComplete;
+					},
+					None => {
+						log::debug!("[AC]: Internal control function {} failed to claim an address", self.name);
+						self.current_state = State::UnableToClaim;
 					}
 				}
-
-
-		// 		// Search the range of generally available addresses
-		// 		bool addressFound = false;
-
-		// 		for (std::uint8_t i = 128; i <= 247; i++)
-		// 		{
-		// 			if ((nullptr == CANNetworkManager::CANNetwork.get_control_function(m_portIndex, i, {})) && (send_address_claim(i)))
-		// 			{
-		// 				addressFound = true;
-		// 				
-		// 				break;
-		// 			}
-		// 		}
-
-		// 		if (!addressFound)
-		// 		{
-		// 			CANStackLogger::critical("[AC]: Internal control function %016llx failed to claim an address on channel %u",
-		// 			                         m_isoname.get_full_name(),
-		// 			                         m_portIndex);
-		// 			set_current_state(State::UnableToClaim);
-		// 		}
 			}
 			State::SendReclaimAddressOnRequest => {
-		// 		if (send_address_claim(m_claimedAddress))
-		// 		{
-		// 			set_current_state(State::AddressClaimingComplete);
-		// 		}
+				self.send_address_claim(network_manager);
+				self.current_state = State::AddressClaimingComplete;
 			}
 			State::ContendForPreferredAddress => {
 				// TODO: Non-arbitratable address contention (there is not a good reason to use this, but we should add support anyways)
@@ -217,9 +189,8 @@ impl AddressClaimStateMachine {
 
 
 
-
-	fn send_request_to_claim(&self, network_manager: &CanNetworkManager) -> bool {
-		if !self.is_enabled { return false }
+	fn send_request_to_claim(&self, network_manager: &CanNetworkManager) {
+		if !self.is_enabled { return }
 
 		let data: [u8; 3] = ParameterGroupNumber::AddressClaim.into();
 
@@ -231,12 +202,10 @@ impl AddressClaimStateMachine {
 			&data,
 		);
 		network_manager.send_can_message(message);
-
-		true
 	}
 
-	fn send_address_claim(&mut self, network_manager: &CanNetworkManager) -> bool {
-		if !self.is_enabled { return false }
+	fn send_address_claim(&mut self, network_manager: &CanNetworkManager) {
+		if !self.is_enabled { return }
 
 		let data: [u8; 8] = self.name.into();
 
@@ -250,7 +219,5 @@ impl AddressClaimStateMachine {
 		network_manager.send_can_message(message);
 
 		self.claimed_address = self.preferred_address;
-
-		true
 	}
 }

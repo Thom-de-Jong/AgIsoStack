@@ -3,7 +3,7 @@ use alloc::{vec::Vec, collections::{BTreeMap, VecDeque}};
 
 use crate::{
     control_function::{ControlFunction, InternalControlFunction},
-    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, CanMessage, Address,
+    CanPriority, CanFrame, Id, ExtendedId, ParameterGroupNumber, CanMessage, Address, name::Name,
     // transport_protocol_manager::TransportProtocolManager
 };
 
@@ -81,7 +81,7 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn process_can_message(&self, message: CanMessage) {
+    pub fn process_can_message(&mut self, message: CanMessage) {
         // Log all CAN traffic on the bus.
         #[cfg(feature = "log_all_can_read")]
         log::debug!("Read: {:?}", &message);
@@ -130,21 +130,18 @@ impl<'a> CanNetworkManager<'a> {
     /// Iterates over all messages, removing handled messages using the predicate.
     /// 
     /// In other words, remove all messages `m` for which `f(&m)` returns `true`.
-    pub fn handle_message<F>(&self, f: F)
-    where
-        F: FnMut(&CanMessage) -> bool,
-    {
+    pub fn handle_message<F: FnMut(&CanMessage) -> bool>(&self, mut f: F) {
         self.received_can_message_buffer.borrow_mut().retain(move |m| !f(m));
     }
 
     pub fn free_address(&self) -> Option<Address> {
-
-        self.control_functions_on_the_network.retain(|k, v| !Address::USER_ADDRESSES.contains(V));
-
-        // TODO, create an Address Iterator?
-        for i in (128..=247) {
-			
-		}
+        let mut list = self.control_functions_on_the_network.clone();
+        list.retain(|_, v| !Address::USER_ADDRESSES.contains(v));
+        if let Some((_, v)) = list.pop_first() {
+            Some(v)
+        } else {
+            None
+        }
     }
 
     fn update_control_functions_on_the_network(&mut self, name: Name, address: Address) {
@@ -152,7 +149,7 @@ impl<'a> CanNetworkManager<'a> {
             self.control_functions_on_the_network.remove(&name);
             return;
         }
-        self.control_functions_on_the_network.insert(name, source_address);
+        self.control_functions_on_the_network.insert(name, address);
     }
 }
 

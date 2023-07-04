@@ -125,9 +125,10 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // Bind callbacks to VTC events.
     // These callbacks will provide us with event driven notifications of button presses from the stack.
     // Using a channel we can send events to the isobus_task to be processed.
-    let callback = |e| { let _ = event_tx.clone().send(e); };
-    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(&callback);
-    let _ = test_virtual_terminal_client.add_vt_button_event_listener(&callback);
+    let vt_soft_key_event_listener_channel = event_tx.clone();
+    let vt_button_event_listener_channel = event_tx.clone();
+    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(move |e| { let _ = vt_soft_key_event_listener_channel.send(e); });
+    let _ = test_virtual_terminal_client.add_vt_button_event_listener(move |e| { let _ = vt_button_event_listener_channel.send(e); });
 
     // Initialize the VTC.
     test_virtual_terminal_client.initialize();
@@ -135,17 +136,13 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
     let mut example_number_output: u32 = 214748364;
 
-    test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
-    test_virtual_terminal_client.send_change_numeric_value(&network_manager, BUTTON_EXAMPLE_NUMBER_VAR_NUM, example_number_output);
-
-
     loop {
         // Receive a CanFrame without blocking
         if let Ok(frame) = rx.try_recv() {
             network_manager.process_can_frame(frame);
         }
 
-        // Receive VTKeyEvents without blocking
+        // Receive VTKeyEvents without blocking using callback results
         if let Ok(event) = event_rx.try_recv() {
             match event.key_event {
                 KeyActivationCode::ButtonUnlatchedOrReleased => {

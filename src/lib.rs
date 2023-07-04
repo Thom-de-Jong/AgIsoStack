@@ -77,12 +77,12 @@ impl From<u8> for CanPriority {
 }
 
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Address(pub u8);
 impl Address {
     pub const NULL: Address = Address(0xFE);
     pub const GLOBAL: Address = Address(0xFF);
-    pub const USER_ADDRESSES: Range<Address> = Address(0x80)..Address(0xFE);
+    pub const USER_ADDRESSES: Range<Address> = Address(0x80)..Address(0xF8);
 }
 impl Default for Address {
     fn default() -> Self {
