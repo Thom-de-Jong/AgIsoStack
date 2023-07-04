@@ -1,7 +1,10 @@
 
+use core::time::Duration;
+
 use heapless::FnvIndexMap;
 
-use crate::{control_function::*, CanNetworkManager, CanPriority, ParameterGroupNumber, CanMessage};
+use crate::{control_function::*, CanNetworkManager, CanPriority, ParameterGroupNumber, CanMessage, Address, ObjectId};
+use crate::hardware_integration::{TimeDriver, TimeDriverTrait};
 
 const VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE: usize = 4;
 const VT_BUTTON_EVENT_CALLBACK_LIST_SIZE: usize = 4;
@@ -20,9 +23,15 @@ pub struct VirtualTerminalClient<'a> {
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
     internal_control_function: InternalControlFunction, //< The internal control function the client uses to send from
 
-    can_message_data_buffer: [u8; 8],
-
 	is_initialized: bool,
+
+	// TODO: VT status variables, make PartneredControlFunction hold this in tuple struct VirtualTerminalServer?
+	lastVTStatusTimestamp_ms: Duration,
+	activeWorkingSetMasterAddress: Address,
+	activeWorkingSetDataMaskObjectID: ObjectId,
+	activeWorkingSetSoftKeyMaskObjectID: ObjectId,
+	busyCodesBitfield: u8,
+	currentCommandFunctionCode: u8,
 
 	soft_key_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE>,
 	button_event_callbacks: FnvIndexMap<usize, &'a dyn Fn(VTKeyEvent), VT_BUTTON_EVENT_CALLBACK_LIST_SIZE>,
@@ -43,8 +52,16 @@ impl<'a> VirtualTerminalClient<'a> {
 		let vtc = VirtualTerminalClient {
             partnered_control_function: partner,
             internal_control_function: client,
-    		can_message_data_buffer: [0; 8],
+
 			is_initialized: false,
+
+			lastVTStatusTimestamp_ms: Duration::default(),
+			activeWorkingSetMasterAddress: Address::NULL,
+			activeWorkingSetDataMaskObjectID: ObjectId::NULL,
+			activeWorkingSetSoftKeyMaskObjectID: ObjectId::NULL,
+			busyCodesBitfield: u8::default(),
+			currentCommandFunctionCode: u8::default(),
+
 			soft_key_event_callbacks: FnvIndexMap::new(),
 			button_event_callbacks: FnvIndexMap::new(),
             pointing_event_callbacks: FnvIndexMap::new(),
@@ -100,7 +117,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		// CANNetworkManager::CANNetwork.remove_global_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal), process_rx_message, this);
 		
 		// shouldTerminate = true;
-		self.set_state(StateMachineState::Disconnected);
+		// self.set_state(StateMachineState::Disconnected);
 		self.is_initialized = false;
 		log::info!("[VT]: VT Client connection has been terminated.");
 	}
@@ -362,7 +379,7 @@ impl<'a> VirtualTerminalClient<'a> {
 	
 
 	pub fn send_change_numeric_value(&mut self, network_manager: &CanNetworkManager, object_id: u16, value: u32) {
-		self.can_message_data_buffer = [
+		let data = [
 			VTFunction::ChangeNumericValueCommand as u8,
 			object_id as u8,
 			(object_id >> 8) as u8,
@@ -378,7 +395,7 @@ impl<'a> VirtualTerminalClient<'a> {
 			ParameterGroupNumber::ECUtoVirtualTerminal,
 			self.internal_control_function.address(),
 			self.partnered_control_function.address(),
-			&self.can_message_data_buffer,
+			&data,
 		);
 		network_manager.send_can_message(message);
 	}
@@ -386,20 +403,18 @@ impl<'a> VirtualTerminalClient<'a> {
 
 
     pub fn update(&mut self, network_manager: &CanNetworkManager) {
-        // Firt update the connected controll functions
+        // Firt update the connected control functions.
         self.internal_control_function.update(network_manager);
         // self.partnered_control_function.update(network_manager);
 
-		for message in network_manager {
-			self.process_can_message(message)
-		}
+		// Process received messages and update internal state.
+        network_manager.handle_message(|message| self.process_can_message(message));
 
-		// for (_,callback) in &mut self.soft_key_event_callbacks {
-		// 	callback(VTKeyEvent{ object_Id: 0, parent_object_Id: 0, key_number: 0 });
-		// }
-		// for (_,callback) in &mut self.button_event_callbacks {
-		// 	callback(VTKeyEvent{ object_Id: 0, parent_object_Id: 0, key_number: 0 });
-		// }
+
+
+
+
+		// Do stuff based on the current internal state.
 
         // StateMachineState previousStateMachineState = state; // Save state to see if it changes this update
 
@@ -817,22 +832,8 @@ impl<'a> VirtualTerminalClient<'a> {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	pub fn process_can_message(&self, message: CanMessage) {
+	pub fn process_can_message(&mut self, message: &CanMessage) -> bool {
+		let mut handled = false;
 		match message.pgn() {
 			ParameterGroupNumber::Acknowledge => {
 				// if AcknowledgementType::Negative as u8 == message.data()[0] {
@@ -843,17 +844,18 @@ impl<'a> VirtualTerminalClient<'a> {
 				// }
 			},
 			ParameterGroupNumber::VirtualTerminalToECU => {
-				if let Ok(vt_function) = message.data()[0].try_into() {
+				if let Ok(vt_function) = message.get_u8_at(0).try_into() {
 					match vt_function {
-						VTFunction::SoftKeyActivationMessage => {
-							let key_event: KeyActivationCode = message.data()[1].try_into().unwrap_or_else(|e| KeyActivationCode::ButtonPressAborted);
-							let object_id: u16 = u16::from_le_bytes([message.data()[2], message.data()[3]]);
-							let parent_object_id: u16 = u16::from_le_bytes([message.data()[4], message.data()[5]]);
-							let key_number: u8 = message.data()[6];
+						VTFunction::SoftKeyActivationMessage |
+						VTFunction::ButtonActivationMessage => {
+							let key_event: KeyActivationCode = message.get_u8_at(1).try_into().unwrap_or_else(|_| KeyActivationCode::ButtonPressAborted);
+							let object_id: u16 = message.get_u16_at(2);
+							let parent_object_id: u16 = message.get_u16_at(4);
+							let key_number: u8 = message.get_u8_at(6);
 							// if self.partnered_control_function.get_vt_version_supported(VTVersion::Version6) {
 							// 	// TODO: process TAN
 							// }
-							for (_,callback) in self.soft_key_event_callbacks {
+							for (_,callback) in &self.soft_key_event_callbacks {
 								callback(VTKeyEvent{
 									object_id,
 									parent_object_id,
@@ -862,23 +864,6 @@ impl<'a> VirtualTerminalClient<'a> {
 								});
 							}
 						}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::ButtonActivationMessage):
-				// 		{
-				// 			std::uint8_t keyCode = message.get_uint8_at(1);
-				// 			if (keyCode <= static_cast<std::uint8_t>(KeyActivationCode::ButtonPressAborted))
-				// 			{
-				// 				std::uint16_t objectID = message.get_uint16_at(2);
-				// 				std::uint16_t parentObjectID = message.get_uint16_at(4);
-				// 				std::uint8_t keyNumber = message.get_uint8_at(6);
-				// 				if (parentVT->get_vt_version_supported(VTVersion::Version6))
-				// 				{
-				// 					//! @todo process TAN
-				// 				}
-				// 				parentVT->buttonEventDispatcher.invoke({ parentVT, objectID, parentObjectID, keyNumber, static_cast<KeyActivationCode>(keyCode) });
-				// 			}
-				// 		}
-				// 		break;
 				// 		case static_cast<std::uint8_t>(Function::PointingEventMessage):
 				// 		{
 				// 			std::uint16_t xPosition = message.get_uint16_at(1);
@@ -1185,18 +1170,15 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 			parentVT->send_auxiliary_input_status_enable_response(inputObjectID, isInvalidObjectID ? false : shouldEnable, isInvalidObjectID);
 				// 		}
 				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::VTStatusMessage):
-				// 		{
-				// 			parentVT->lastVTStatusTimestamp_ms = SystemTiming::get_timestamp_ms();
-				// 			parentVT->activeWorkingSetMasterAddress = message.get_uint8_at(1);
-				// 			parentVT->activeWorkingSetDataMaskObjectID = message.get_uint16_at(2);
-				// 			parentVT->activeWorkingSetSoftKeyMaskObjectID = message.get_uint16_at(4);
-				// 			parentVT->busyCodesBitfield = message.get_uint8_at(6);
-				// 			parentVT->currentCommandFunctionCode = message.get_uint8_at(7);
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::GetMemoryMessage):
-				// 		{
+						VTFunction::VTStatusMessage => {
+							self.lastVTStatusTimestamp_ms = TimeDriver::time_elapsed();
+							self.activeWorkingSetMasterAddress = message.get_u8_at(1).into();
+							self.activeWorkingSetDataMaskObjectID = message.get_u16_at(2).into();
+							self.activeWorkingSetSoftKeyMaskObjectID = message.get_u16_at(4).into();
+							self.busyCodesBitfield = message.get_u8_at(6);
+							self.currentCommandFunctionCode = message.get_u8_at(7);
+						}
+						VTFunction::GetMemoryMessage => {
 				// 			if (StateMachineState::WaitForGetMemoryResponse == parentVT->state)
 				// 			{
 				// 				parentVT->connectedVTVersion = message.get_uint8_at(1);
@@ -1211,10 +1193,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Connection Failed Not Enough Memory");
 				// 				}
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::GetNumberOfSoftKeysMessage):
-				// 		{
+						}
+						VTFunction::GetNumberOfSoftKeysMessage => {
 				// 			if (StateMachineState::WaitForGetNumberSoftKeysResponse == parentVT->state)
 				// 			{
 				// 				parentVT->softKeyXAxisPixels = message.get_uint8_at(4);
@@ -1223,10 +1203,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 				parentVT->numberPhysicalSoftkeys = message.get_uint8_at(7);
 				// 				parentVT->set_state(StateMachineState::SendGetTextFontData);
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::GetTextFontDataMessage):
-				// 		{
+						}
+						VTFunction::GetTextFontDataMessage => {
 				// 			if (StateMachineState::WaitForGetTextFontDataResponse == parentVT->state)
 				// 			{
 				// 				parentVT->smallFontSizesBitfield = message.get_uint8_at(5);
@@ -1234,10 +1212,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 				parentVT->fontStylesBitfield = message.get_uint8_at(7);
 				// 				parentVT->set_state(StateMachineState::SendGetHardware);
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::GetHardwareMessage):
-				// 		{
+						}
+						VTFunction::GetHardwareMessage => {
 				// 			if (StateMachineState::WaitForGetHardwareResponse == parentVT->state)
 				// 			{
 				// 				if (message.get_uint8_at(2) <= static_cast<std::uint8_t>(GraphicMode::TwoHundredFiftySixColour))
@@ -1260,10 +1236,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 					parentVT->set_state(StateMachineState::UploadObjectPool);
 				// 				}
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::GetVersionsResponse):
-				// 		{
+						}
+						VTFunction::GetVersionsResponse => {
 				// 			if (StateMachineState::WaitForGetVersionsResponse == parentVT->state)
 				// 			{
 				// 				// See if the server returned any labels
@@ -1344,10 +1318,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 			{
 				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Get Versions Response ignored!");
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::LoadVersionCommand):
-				// 		{
+						}
+						VTFunction::LoadVersionCommand => {
 				// 			if (StateMachineState::WaitForLoadVersionResponse == parentVT->state)
 				// 			{
 				// 				if (0 == message.get_uint8_at(5))
@@ -1391,10 +1363,8 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 			{
 				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Load Versions Response ignored!");
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::StoreVersionCommand):
-				// 		{
+						}
+						VTFunction::StoreVersionCommand => {
 				// 			if (StateMachineState::WaitForStoreVersionResponse == parentVT->state)
 				// 			{
 				// 				if (0 == message.get_uint8_at(5))
@@ -1424,29 +1394,20 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 			{
 				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Store Versions Response ignored!");
 				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::DeleteVersionCommand):
-				// 		{
-				// 			if (0 == message.get_uint8_at(5))
-				// 			{
-				// 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Delete Version Response OK!");
-				// 			}
-				// 			else
-				// 			{
-				// 				if (message.get_bool_at(5, 1))
-				// 				{
-				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Version label is not correct, or unknown.");
-				// 				}
-				// 				if (message.get_bool_at(5, 3))
-				// 				{
-				// 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: Delete Version Response error: Any other error.");
-				// 				}
-				// 			}
-				// 		}
-				// 		break;
-				// 		case static_cast<std::uint8_t>(Function::EndOfObjectPoolMessage):
-				// 		{
+						}
+						VTFunction::DeleteVersionCommand => {
+							if message.get_u8_at(5) != 0 {
+								log::info!("[VT]: Delete Version Response OK!");
+							} else {
+								if message.get_bool_at(5, 1) {
+									log::warn!("[VT]: Delete Version Response error: Version label is not correct, or unknown.");
+								}
+								if message.get_bool_at(5, 3) {
+									log::warn!("[VT]: Delete Version Response error: Any other error.");
+								}
+							}
+						}
+						VTFunction::EndOfObjectPoolMessage => {
 				// 			if (StateMachineState::WaitForEndOfObjectPoolResponse == parentVT->state)
 				// 			{
 				// 				bool anyErrorInPool = message.get_bool_at(1, 0);
@@ -1499,7 +1460,7 @@ impl<'a> VirtualTerminalClient<'a> {
 				// 					}
 				// 				}
 				// 			}
-				// 		}
+						}
 						_ => {},
 					}
 				}
@@ -1531,6 +1492,7 @@ impl<'a> VirtualTerminalClient<'a> {
 				log::warn!("[VT]: Client unknown message: {:?}", message.pgn());
 			},
 		}
+		handled
 	}
 	
 }

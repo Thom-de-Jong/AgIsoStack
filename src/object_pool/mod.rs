@@ -5,6 +5,16 @@ use alloc::{vec::Vec, string::String};
 
 use crate::name::Name;
 
+mod object_pool;
+pub use object_pool::ObjectPool;
+
+
+pub enum ParseError {
+    DataEmpty,
+    UnknownObjectType,
+}
+
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ObjectType {
     WorkingSet = 0,
@@ -58,59 +68,61 @@ pub enum ObjectType {
     ScalesGraphic = 48,
 }
 
-impl From<u8> for ObjectType {
-    fn from(val: u8) -> Self {
+impl TryFrom<u8> for ObjectType {
+    type Error = ParseError;
+
+    fn try_from(val: u8) -> Result<Self, Self::Error> {
         match val {
-            0 => Self::WorkingSet,
-            1 => Self::DataMask,
-            2 => Self::AlarmMask,
-            3 => Self::Container,
-            4 => Self::SoftKeyMask,
-            5 => Self::Key,
-            6 => Self::Button,
-            7 => Self::InputBoolean,
-            8 => Self::InputString,
-            9 => Self::InputNumber,
-            10 => Self::InputList,
-            11 => Self::OutputString,
-            12 => Self::OutputNumber,
-            13 => Self::OutputLine,
-            14 => Self::OutputRectangle,
-            15 => Self::OutputEllipse,
-            16 => Self::OutputPolygon,
-            17 => Self::OutputMeter,
-            18 => Self::OutputLinearBarGraph,
-            19 => Self::OutputArchedBarGraph,
-            20 => Self::PictureGraphic,
-            21 => Self::NumberVariable,
-            22 => Self::StringVariable,
-            23 => Self::FontAttributes,
-            24 => Self::LineAttributes,
-            25 => Self::FillAttributes,
-            26 => Self::InputAttributes,
-            27 => Self::ObjectPointer,
-            28 => Self::Macro,
-            29 => Self::AuxiliaryFunctionType1,
-            30 => Self::AuxiliaryInputType1,
-            31 => Self::AuxiliaryFunctionType2,
-            32 => Self::AuxiliaryInputType2,
-            33 => Self::AuxiliaryControlDesignatorType2,
-            34 => Self::WindowMask,
-            35 => Self::KeyGroup,
-            36 => Self::GraphicsContext,
-            37 => Self::OutputList,
-            38 => Self::ExtendedInputAttributes,
-            39 => Self::ColourMap,
-            40 => Self::ObjectLabelReferenceList,
-            41 => Self::ExternalObjectDefinition,
-            42 => Self::ExternalReferenceName,
-            43 => Self::ExternalObjectPointer,
-            44 => Self::Animation,
-            45 => Self::ColourPalette,
-            46 => Self::GraphicData,
-            47 => Self::WorkingSetSpecialControls,
-            48 => Self::ScalesGraphic,
-            _ => unimplemented!(),
+            0 => Ok(Self::WorkingSet),
+            1 => Ok(Self::DataMask),
+            2 => Ok(Self::AlarmMask),
+            3 => Ok(Self::Container),
+            4 => Ok(Self::SoftKeyMask),
+            5 => Ok(Self::Key),
+            6 => Ok(Self::Button),
+            7 => Ok(Self::InputBoolean),
+            8 => Ok(Self::InputString),
+            9 => Ok(Self::InputNumber),
+            10 => Ok(Self::InputList),
+            11 => Ok(Self::OutputString),
+            12 => Ok(Self::OutputNumber),
+            13 => Ok(Self::OutputLine),
+            14 => Ok(Self::OutputRectangle),
+            15 => Ok(Self::OutputEllipse),
+            16 => Ok(Self::OutputPolygon),
+            17 => Ok(Self::OutputMeter),
+            18 => Ok(Self::OutputLinearBarGraph),
+            19 => Ok(Self::OutputArchedBarGraph),
+            20 => Ok(Self::PictureGraphic),
+            21 => Ok(Self::NumberVariable),
+            22 => Ok(Self::StringVariable),
+            23 => Ok(Self::FontAttributes),
+            24 => Ok(Self::LineAttributes),
+            25 => Ok(Self::FillAttributes),
+            26 => Ok(Self::InputAttributes),
+            27 => Ok(Self::ObjectPointer),
+            28 => Ok(Self::Macro),
+            29 => Ok(Self::AuxiliaryFunctionType1),
+            30 => Ok(Self::AuxiliaryInputType1),
+            31 => Ok(Self::AuxiliaryFunctionType2),
+            32 => Ok(Self::AuxiliaryInputType2),
+            33 => Ok(Self::AuxiliaryControlDesignatorType2),
+            34 => Ok(Self::WindowMask),
+            35 => Ok(Self::KeyGroup),
+            36 => Ok(Self::GraphicsContext),
+            37 => Ok(Self::OutputList),
+            38 => Ok(Self::ExtendedInputAttributes),
+            39 => Ok(Self::ColourMap),
+            40 => Ok(Self::ObjectLabelReferenceList),
+            41 => Ok(Self::ExternalObjectDefinition),
+            42 => Ok(Self::ExternalReferenceName),
+            43 => Ok(Self::ExternalObjectPointer),
+            44 => Ok(Self::Animation),
+            45 => Ok(Self::ColourPalette),
+            46 => Ok(Self::GraphicData),
+            47 => Ok(Self::WorkingSetSpecialControls),
+            48 => Ok(Self::ScalesGraphic),
+            _ => Err(ParseError::UnknownObjectType),
         }
     }
 }
@@ -335,6 +347,7 @@ impl Object {
         }
     }
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectId(u16);
@@ -2544,7 +2557,6 @@ pub struct ScalesGraphic {
     pub macro_refs: Vec<MacroRef>,
 }
 
-// TODO; Implement language pairs
 #[derive(Debug)]
 pub struct WorkingSetSpecialControls {
     pub id: ObjectId,

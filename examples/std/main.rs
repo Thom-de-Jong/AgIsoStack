@@ -7,7 +7,8 @@ use agisostack::{
     name::*,
     control_function::*,
     CanFrame,
-    virtual_terminal_client::*, CanNetworkManager,
+    CanNetworkManager,
+    virtual_terminal_client::*,
 };
 
 
@@ -72,7 +73,6 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     network_manager.send_can_frame_callback(&callback);
 
 
-    // let network_manager: Rc<RefCell<CanNetworkManager>> = Rc::new(RefCell::new(network_manager));
 
 
     // Create a new name builder.

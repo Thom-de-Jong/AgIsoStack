@@ -1,77 +1,57 @@
 
-use alloc::collections::VecDeque;
+use alloc::vec::Vec;
 
-use crate::objects::*;
-
+use super::*;
 
 #[derive(Debug)]
-pub struct ObjectPool<const N: usize> {
-    objects: VecDeque<Object>,
+pub struct ObjectPool {
+    objects: Vec<Object>,
     colour_map: [u8; 256],
     colour_palette: [Colour; 256],
-
-    temp_size: Option<u32>,
 }
 
-impl<const N: usize> ObjectPool<N> {
+impl ObjectPool {
     pub fn new() -> Self {
         // Setup the default colour map
-        let mut colour_map: [u8; 256] = [0xFFu8; 256];
-        for i in 0..=u8::MAX {
+        let mut colour_map = [0xFFu8; 256];
+        for i in 0..(colour_map.len() as u8) {
             colour_map[i as usize] = i;
         }
 
         ObjectPool {
-            objects: VecDeque::new(),
+            objects: Vec::new(),
             colour_map,
             colour_palette: Colour::COLOUR_PALETTE,
-
-            temp_size: None,
         }
     }
 
-    pub fn from_iop<I>(data: I) -> Result<Self, ()>
+    pub fn from_iop<I>(data: I) -> Self
     where
         I: IntoIterator<Item = u8>,
     {
-        //let mut data = data.into_iter();
+        let mut data = data.into_iter();
 
         let mut op = Self::new();
 
         while let Ok(o) = Object::read(&mut data) {
-            if op.objects.push_back(o).is_err() {
-                log::error!("Object pool not big enough. Used size: {}", op.size());
-                return Err(());
-            }
+            op.objects.push(o);
         }
 
-        Ok(op)
+        op
     }
 
-    pub fn as_iop(&self, buffer: &[u8]) -> Vec<u8, N> {
+    pub fn as_iop(&self) -> Vec<u8> {
         let mut data = Vec::new();
 
         for obj in &self.objects {
-            buffer.extend(obj.write());
+            data.extend(obj.write());
         }
-
-        // self.temp_size = Some(data.len() as u32);
 
         data
     }
 
     pub fn add(&mut self, obj: Object) {
-        if let Some(len) = self.temp_size {
-            self.temp_size = Some(len + obj.write().len() as u32);
-        }
         self.objects.push(obj);
-    }
-
-    pub fn size(&mut self) -> u32 {
-        match self.temp_size {
-            Some(len) => len,
-            None => self.as_iop().len() as u32,
-        }
     }
 
     pub fn object_by_id(&self, id: ObjectId) -> Option<&Object> {
@@ -139,15 +119,7 @@ impl<const N: usize> ObjectPool<N> {
     }
 }
 
-impl<const N: usize> Iterator for ObjectPool<N> {
-    type Item = Object;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.objects.pop_front()
-    }
-}
-
-impl<const N: usize> Default for ObjectPool<N> {
+impl Default for ObjectPool {
     fn default() -> Self {
         Self::new()
     }

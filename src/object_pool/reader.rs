@@ -1,13 +1,9 @@
 use super::*;
 
-pub enum ParseError {
-    DataEmpty,
-}
-
 impl Object {
     pub fn read(data: &mut dyn Iterator<Item = u8>) -> Result<Self, ParseError> {
         let id = Self::read_u16(data)?.into();
-        let object_type = Self::read_u8(data)?.into();
+        let object_type = Self::read_u8(data)?.try_into()?;
 
         match object_type {
             ObjectType::WorkingSet => {

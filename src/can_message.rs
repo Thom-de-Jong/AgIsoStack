@@ -1,7 +1,7 @@
 
 use alloc::vec::Vec;
 
-use crate::{Id, CanFrame, Address, ParameterGroupNumber, ExtendedId, CanPriority};
+use crate::{Id, CanFrame, Address, ParameterGroupNumber, ExtendedId, CanPriority, name::Name};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CanMessage {
@@ -105,6 +105,76 @@ impl CanMessage {
     // pub fn builder() -> CanMessageBuilder<'a> {
 
     // }
+
+    pub fn get_bool_at(&self, index: usize, bit: usize) -> bool {
+        match self.data.get(index).map(|&value| (value & (0b1 << bit)) != 0){
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                bool::default()
+            },
+        }
+    }
+    pub fn get_u8_at(&self, index: usize) -> u8 {
+        match self.data.get(index).copied() {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                u8::default()
+            },
+        }
+    }
+    pub fn get_u16_at(&self, index: usize) -> u16 {
+        match self.data.get(index..=index+1).map(|value| {
+            let mut data: [u8; 2] = [0; 2];
+            data.copy_from_slice(value);
+            u16::from_le_bytes(data)
+        }) {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                u16::default()
+            },
+        }
+    }
+    pub fn get_u32_at(&self, index: usize) -> u32 {
+        match self.data.get(index..=index+3).map(|value| {
+            let mut data: [u8; 4] = [0; 4];
+            data.copy_from_slice(value);
+            u32::from_le_bytes(data)
+        }) {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                u32::default()
+            },
+        }
+    }
+
+    pub fn get_pgn_at(&self, index: usize) -> ParameterGroupNumber {
+        match self.data.get(index..index+3).map(|value| {
+            let mut data: [u8; 4] = [0; 4];
+            data.copy_from_slice(value);
+            u32::from_le_bytes(data).into()
+        }) {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                ParameterGroupNumber::default()
+            },
+        }
+    }
+    pub fn get_name(&self, index: usize) -> Name {
+        match self.data.get(index..index+8).map(|value| {
+            value.into()
+        }) {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                Name::default()
+            },
+        }
+    }
 }
 
 // pub struct CanMessageBuilder<'a> {
@@ -159,11 +229,11 @@ impl CanMessage {
 //     }
 // }
 
-// impl From<CanFrame> for CanMessage<'_> {
-//     fn from(value: CanFrame) -> Self {
-//         CanMessage::new(value.id(), value.data())
-//     }
-// }
+impl From<CanFrame> for CanMessage {
+    fn from(value: CanFrame) -> Self {
+        CanMessage::new_from_id(value.id(), &value.data()[..value.dlc()])
+    }
+}
 
 
 

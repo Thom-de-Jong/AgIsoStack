@@ -1,7 +1,5 @@
 
-use core::cell::RefCell;
-
-use crate::{Address, name::Name, CanNetworkManager};
+use crate::{Address, name::Name, CanNetworkManager, CanMessage};
 
 use super::AddressClaimStateMachine;
 
@@ -99,6 +97,14 @@ impl InternalControlFunction {
     // }
 
     pub fn update(&mut self, network_manager: &CanNetworkManager) {
+        // Process received messages and update internal state.
+        network_manager.handle_message(|message| self.state_machine.process_can_message(message));
+
+        // Do stuff based on the current internal state.   
+        self.state_machine.update(network_manager);
+
+
+
 		// let previous_address = self.address;
         // self.object_changed_address_since_last_update = false;
         // self.state_machine.update();

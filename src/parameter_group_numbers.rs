@@ -46,21 +46,18 @@ impl ParameterGroupNumber {
         value.into()
     }
 
-    pub fn from_le_bytes(bytes: [u8; 3]) -> Self {
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
         Self::new(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]))
     }
-    // pub fn from_vec(bytes: Vec<u8>) -> Self {
-    //     Self::new(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]))
-    // }
 
     pub fn as_u32(&self) -> u32 {
         *self as u32
     }
 
-    // pub fn as_bytes(&self) -> [u8; 3] {
-    //     let bytes: [u8; 4] = self.0.to_le_bytes();
-    //     [bytes[0], bytes[1], bytes[2]]
-    // }
+    pub fn as_bytes(&self) -> [u8; 3] {
+        let bytes: [u8; 4] = self.as_u32().to_le_bytes();
+        [bytes[0], bytes[1], bytes[2]]
+    }
 
     pub fn extended_data_page(&self) -> bool {
         ((self.as_u32() >> 17) & 0b1) != 0
@@ -82,6 +79,11 @@ impl ParameterGroupNumber {
     }
 }
 
+impl Default for ParameterGroupNumber {
+    fn default() -> Self {
+        Self::Any
+    }
+}
 
 impl From<u16> for ParameterGroupNumber {
     fn from(val: u16) -> Self {
@@ -138,5 +140,11 @@ impl From<u32> for ParameterGroupNumber {
             0x00FD02 => Self::AllImplementsStopOperationsSwitchState,
             _ => Self::Any
         }
+    }
+}
+
+impl From<ParameterGroupNumber> for [u8; 3] {
+    fn from(val: ParameterGroupNumber) -> Self {
+        val.as_bytes()
     }
 }

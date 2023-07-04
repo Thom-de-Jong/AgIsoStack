@@ -54,6 +54,12 @@ impl Name {
     }
 }
 
+impl core::fmt::Display for Name {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "0x{:08X}", self.value)
+    }
+}
+
 impl core::fmt::Debug for Name {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Name")

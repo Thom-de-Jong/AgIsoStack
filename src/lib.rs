@@ -5,13 +5,15 @@ extern crate std;
 
 extern crate alloc;
 
-// Re-export can data types
+// Export can data types
 mod can_id;
+use core::ops::Range;
+
 pub use can_id::{Id, StandardId, ExtendedId};
 mod can_frame;
 pub use can_frame::CanFrame;
 
-// Re-export low level Isobus types
+// Export low level Isobus types
 mod can_message;
 pub use can_message::CanMessage;
 pub mod name;
@@ -24,13 +26,12 @@ pub mod hardware_integration;
 
 // TODO: Decide if object pool manipulation is needed in de base library
 // Should it work in no_std?
-// mod objects;
-// pub mod object_pool;
-// pub use objects::ObjectId;
-
+mod object_pool;
+pub use object_pool::ObjectPool;
+pub use object_pool::ObjectId;
 
 pub mod virtual_terminal_client;
-// pub use virtual_terminal_client::VirtualTerminalClient;
+pub use virtual_terminal_client::VirtualTerminalClient;
 
 
 // mod transport_protocol_manager;
@@ -55,7 +56,11 @@ pub enum CanPriority {
 	PriorityDefault6 = 6, //< The default priority
 	PriorityLowest7 = 7, //< The lowest priority
 }
-
+impl Default for CanPriority {
+    fn default() -> Self {
+        Self::PriorityDefault6
+    }
+}
 impl From<u8> for CanPriority {
     fn from(val: u8) -> Self {
         match val {
@@ -71,11 +76,13 @@ impl From<u8> for CanPriority {
     }
 }
 
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Address(pub u8);
 impl Address {
     pub const NULL: Address = Address(0xFE);
     pub const GLOBAL: Address = Address(0xFF);
+    pub const USER_ADDRESSES: Range<Address> = Address(0x80)..Address(0xFE);
 }
 impl Default for Address {
     fn default() -> Self {
