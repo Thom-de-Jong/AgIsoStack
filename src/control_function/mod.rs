@@ -1,5 +1,7 @@
-
-use crate::{Address, name::{Name, NameFilter}, CanNetworkManager};
+use crate::{
+    name::{Name, NameFilter},
+    Address,
+};
 
 mod address_claim_state_machine;
 use address_claim_state_machine::AddressClaimStateMachine;
@@ -14,20 +16,17 @@ pub struct PartneredControlFunction(ExternalControlFunction);
 
 impl PartneredControlFunction {
     pub fn new(_: u8, _filters: &[NameFilter]) -> PartneredControlFunction {
-        PartneredControlFunction(
-            ExternalControlFunction
-            {
-                address: Address::GLOBAL,
-                name: Name::default(),
-                object_changed_address_since_last_update: false,
-            }
-        )
+        PartneredControlFunction(ExternalControlFunction {
+            address: Address::GLOBAL,
+            name: Name::default(),
+            object_changed_address_since_last_update: false,
+        })
     }
 
     pub fn address(&self) -> Address {
         self.0.address
     }
-    
+
     pub fn name(&self) -> Name {
         self.0.name
     }
@@ -41,7 +40,7 @@ pub enum ControlFunction {
 
 impl ControlFunction {
     // pub fn new_internal_control_function(desired_name: Name, preferred_address: Address, ) -> Option<InternalControlFunction> {
-        
+
     // }
     // // pub fn new_external_control_function(desired_name: Name, prefered_address: Address, can_port: u8) -> ControlFunction {
     // //     ControlFunction::Partnered(PartneredControlFunction( {
@@ -71,12 +70,12 @@ impl ControlFunction {
             ControlFunction::Partnered(cf) => cf.0.address(),
         }
     }
-    
+
     pub fn is_address_valid(&self) -> bool {
         let address: Address = self.address();
         (address != Address::GLOBAL) && (address != Address::NULL)
     }
-    
+
     // pub fn can_port(&self) -> u8 {
     //     match self {
     //         ControlFunction::Internal(cf) => cf.can_port(),
@@ -84,7 +83,7 @@ impl ControlFunction {
     //         ControlFunction::Partnered(cf) => cf.0.can_port(),
     //     }
     // }
-    
+
     pub fn name(&self) -> Name {
         match self {
             ControlFunction::Internal(cf) => cf.name(),

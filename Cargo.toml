@@ -61,4 +61,4 @@ env_logger = "0.10.0"
 version = "0.1.0"
 path = "./"
 default-features = false
-features = ["std", "peak_can_driver", "std_time_driver", "log_all_can"]
+features = ["std", "peak_can_driver", "std_time_driver", "log_can"]

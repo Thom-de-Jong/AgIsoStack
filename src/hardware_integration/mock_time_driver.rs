@@ -1,10 +1,9 @@
-
 use core::time::Duration;
 
 use super::TimeDriverTrait;
 
 lazy_static::lazy_static! {
-	static ref STARTUP_TIME: Duration = Duration::from_millis(0);
+    static ref STARTUP_TIME: Duration = Duration::from_millis(0);
 }
 
 pub struct MockTimeDriver {}

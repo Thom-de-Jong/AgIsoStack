@@ -1,13 +1,12 @@
-
 use super::IndustryGroup;
 
 /// Enum containing all Device Classes.
 /// Some Device classes belong to multiple Industry Groups.
 /// ```rust
 /// use agisostack::name::{IndustryGroup, DeviceClass};
-/// 
+///
 /// let device_class: DeviceClass = DeviceClass::Fertilizers;
-/// 
+///
 /// assert_eq!(device_class, Into::<DeviceClass>::into((5, Some(IndustryGroup::AgriculturalAndForestryEquipment))));
 /// assert_eq!(Into::<u8>::into(device_class), 5);
 /// ```
@@ -92,9 +91,9 @@ impl Default for DeviceClass {
 /// Display the Device Class name.
 /// ```rust
 /// use agisostack::name::DeviceClass;
-/// 
+///
 /// let device_class: DeviceClass = DeviceClass::Fertilizers;
-/// 
+///
 /// assert_eq!("Fertilizers", format!("{}", device_class));
 /// ```
 impl core::fmt::Display for DeviceClass {
@@ -181,37 +180,71 @@ impl From<DeviceClass> for u8 {
 impl From<(u8, Option<IndustryGroup>)> for DeviceClass {
     fn from(value: (u8, Option<IndustryGroup>)) -> Self {
         match value {
-            (0, Some(IndustryGroup::IndustrialProcessControl)) => DeviceClass::IndustrialProcessControlStationary,
+            (0, Some(IndustryGroup::IndustrialProcessControl)) => {
+                DeviceClass::IndustrialProcessControlStationary
+            }
             (0, Some(ig)) => DeviceClass::NonSpecificSystem(ig),
 
-            (1, Some(IndustryGroup::OnHighwayEquipment)) => DeviceClass::Tractor(IndustryGroup::OnHighwayEquipment),
+            (1, Some(IndustryGroup::OnHighwayEquipment)) => {
+                DeviceClass::Tractor(IndustryGroup::OnHighwayEquipment)
+            }
             (2, Some(IndustryGroup::OnHighwayEquipment)) => DeviceClass::Trailer,
 
-            (1, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Tractor(IndustryGroup::AgriculturalAndForestryEquipment),
+            (1, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::Tractor(IndustryGroup::AgriculturalAndForestryEquipment)
+            }
             (2, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Tillage,
-            (3, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::SecondaryTillage,
-            (4, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::PlantersOrSeeders,
+            (3, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::SecondaryTillage
+            }
+            (4, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::PlantersOrSeeders
+            }
             (5, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Fertilizers,
             (6, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Sprayers,
             (7, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Harvesters,
-            (8, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::RootHarvesters,
+            (8, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::RootHarvesters
+            }
             (9, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Forage,
             (10, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Irrigation,
-            (11, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::TransportOrTrailer,
-            (12, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::FarmYardOperations,
-            (13, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::PoweredAuxiliaryDevices,
-            (14, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::SpecialCrops,
+            (11, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::TransportOrTrailer
+            }
+            (12, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::FarmYardOperations
+            }
+            (13, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::PoweredAuxiliaryDevices
+            }
+            (14, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::SpecialCrops
+            }
             (15, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::EarthWork,
             (16, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Skidder,
-            (17, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::SensorSystems,
-            (19, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::TimberHarvesters,
+            (17, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::SensorSystems
+            }
+            (19, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::TimberHarvesters
+            }
             (20, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Forwarders,
-            (21, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::TimberLoaders,
-            (22, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::TimberProcessingMachines,
+            (21, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::TimberLoaders
+            }
+            (22, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::TimberProcessingMachines
+            }
             (23, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Mulchers,
-            (24, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::UtilityVehicles,
-            (25, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::SlurryOrManureApplicators,
-            (26, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::FeedersOrMixers,
+            (24, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::UtilityVehicles
+            }
+            (25, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::SlurryOrManureApplicators
+            }
+            (26, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => {
+                DeviceClass::FeedersOrMixers
+            }
             (27, Some(IndustryGroup::AgriculturalAndForestryEquipment)) => DeviceClass::Weeders,
 
             (1, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::SkidSteerLoader,
@@ -223,7 +256,9 @@ impl From<(u8, Option<IndustryGroup>)> for DeviceClass {
             (7, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::FourWheelDriveLoader,
             (8, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::Grader,
             (9, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::MillingMachine,
-            (10, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::RecyclerAndSoilStabilizer,
+            (10, Some(IndustryGroup::ConstructionEquipment)) => {
+                DeviceClass::RecyclerAndSoilStabilizer
+            }
             (11, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::BindingAgentSpreader,
             (12, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::Paver,
             (13, Some(IndustryGroup::ConstructionEquipment)) => DeviceClass::Feeder,
@@ -235,14 +270,20 @@ impl From<(u8, Option<IndustryGroup>)> for DeviceClass {
             (10, Some(IndustryGroup::MarineEquipment)) => DeviceClass::SystemTools,
             (20, Some(IndustryGroup::MarineEquipment)) => DeviceClass::SafetySystems,
             (25, Some(IndustryGroup::MarineEquipment)) => DeviceClass::Gateway,
-            (30, Some(IndustryGroup::MarineEquipment)) => DeviceClass::PowerManagementAndLightingSystems,
+            (30, Some(IndustryGroup::MarineEquipment)) => {
+                DeviceClass::PowerManagementAndLightingSystems
+            }
             (40, Some(IndustryGroup::MarineEquipment)) => DeviceClass::Steeringsystems,
             (60, Some(IndustryGroup::MarineEquipment)) => DeviceClass::NavigationSystems,
             (70, Some(IndustryGroup::MarineEquipment)) => DeviceClass::CommunicationsSystems,
-            (80, Some(IndustryGroup::MarineEquipment)) => DeviceClass::InstrumentationOrGeneralSystems,
+            (80, Some(IndustryGroup::MarineEquipment)) => {
+                DeviceClass::InstrumentationOrGeneralSystems
+            }
             (90, Some(IndustryGroup::MarineEquipment)) => DeviceClass::EnvironmentalSystems,
-            (100, Some(IndustryGroup::MarineEquipment)) => DeviceClass::DeckCargoAndFishingEquipmentSystems,
-            
+            (100, Some(IndustryGroup::MarineEquipment)) => {
+                DeviceClass::DeckCargoAndFishingEquipmentSystems
+            }
+
             _ => DeviceClass::NotAvailable,
         }
     }
@@ -253,72 +294,73 @@ impl From<DeviceClass> for IndustryGroup {
         match value {
             // Shared
             DeviceClass::NotAvailable => IndustryGroup::Global,
-            DeviceClass::NonSpecificSystem(ig) |
-            DeviceClass::Tractor(ig) => ig,
+            DeviceClass::NonSpecificSystem(ig) | DeviceClass::Tractor(ig) => ig,
 
             // On Highway Equipment
             DeviceClass::Trailer => IndustryGroup::OnHighwayEquipment,
 
             // Agricultural And Forestry Equipment
-            DeviceClass::Tillage |
-            DeviceClass::SecondaryTillage |
-            DeviceClass::PlantersOrSeeders |
-            DeviceClass::Fertilizers |
-            DeviceClass::Sprayers |
-            DeviceClass::Harvesters |
-            DeviceClass::RootHarvesters |
-            DeviceClass::Forage |
-            DeviceClass::Irrigation |
-            DeviceClass::TransportOrTrailer |
-            DeviceClass::FarmYardOperations |
-            DeviceClass::PoweredAuxiliaryDevices |
-            DeviceClass::SpecialCrops |
-            DeviceClass::EarthWork |
-            DeviceClass::Skidder |
-            DeviceClass::SensorSystems |
-            DeviceClass::TimberHarvesters |
-            DeviceClass::Forwarders |
-            DeviceClass::TimberLoaders |
-            DeviceClass::TimberProcessingMachines |
-            DeviceClass::Mulchers |
-            DeviceClass::UtilityVehicles |
-            DeviceClass::SlurryOrManureApplicators |
-            DeviceClass::FeedersOrMixers |
-            DeviceClass::Weeders => IndustryGroup::AgriculturalAndForestryEquipment,
+            DeviceClass::Tillage
+            | DeviceClass::SecondaryTillage
+            | DeviceClass::PlantersOrSeeders
+            | DeviceClass::Fertilizers
+            | DeviceClass::Sprayers
+            | DeviceClass::Harvesters
+            | DeviceClass::RootHarvesters
+            | DeviceClass::Forage
+            | DeviceClass::Irrigation
+            | DeviceClass::TransportOrTrailer
+            | DeviceClass::FarmYardOperations
+            | DeviceClass::PoweredAuxiliaryDevices
+            | DeviceClass::SpecialCrops
+            | DeviceClass::EarthWork
+            | DeviceClass::Skidder
+            | DeviceClass::SensorSystems
+            | DeviceClass::TimberHarvesters
+            | DeviceClass::Forwarders
+            | DeviceClass::TimberLoaders
+            | DeviceClass::TimberProcessingMachines
+            | DeviceClass::Mulchers
+            | DeviceClass::UtilityVehicles
+            | DeviceClass::SlurryOrManureApplicators
+            | DeviceClass::FeedersOrMixers
+            | DeviceClass::Weeders => IndustryGroup::AgriculturalAndForestryEquipment,
 
             // Construction Equipment
-            DeviceClass::SkidSteerLoader |
-            DeviceClass::ArticulatedDumpTruck |
-            DeviceClass::Backhoe |
-            DeviceClass::Crawler |
-            DeviceClass::Excavator |
-            DeviceClass::Forklift |
-            DeviceClass::FourWheelDriveLoader |
-            DeviceClass::Grader |
-            DeviceClass::MillingMachine |
-            DeviceClass::RecyclerAndSoilStabilizer |
-            DeviceClass::BindingAgentSpreader |
-            DeviceClass::Paver |
-            DeviceClass::Feeder |
-            DeviceClass::ScreeningPlant |
-            DeviceClass::Stacker |
-            DeviceClass::Roller |
-            DeviceClass::Crusher => IndustryGroup::ConstructionEquipment,
+            DeviceClass::SkidSteerLoader
+            | DeviceClass::ArticulatedDumpTruck
+            | DeviceClass::Backhoe
+            | DeviceClass::Crawler
+            | DeviceClass::Excavator
+            | DeviceClass::Forklift
+            | DeviceClass::FourWheelDriveLoader
+            | DeviceClass::Grader
+            | DeviceClass::MillingMachine
+            | DeviceClass::RecyclerAndSoilStabilizer
+            | DeviceClass::BindingAgentSpreader
+            | DeviceClass::Paver
+            | DeviceClass::Feeder
+            | DeviceClass::ScreeningPlant
+            | DeviceClass::Stacker
+            | DeviceClass::Roller
+            | DeviceClass::Crusher => IndustryGroup::ConstructionEquipment,
 
             // Marine Equipment
-            DeviceClass::SystemTools |
-            DeviceClass::SafetySystems |
-            DeviceClass::Gateway |
-            DeviceClass::PowerManagementAndLightingSystems |
-            DeviceClass::Steeringsystems |
-            DeviceClass::NavigationSystems |
-            DeviceClass::CommunicationsSystems |
-            DeviceClass::InstrumentationOrGeneralSystems |
-            DeviceClass::EnvironmentalSystems |
-            DeviceClass::DeckCargoAndFishingEquipmentSystems => IndustryGroup::MarineEquipment,
+            DeviceClass::SystemTools
+            | DeviceClass::SafetySystems
+            | DeviceClass::Gateway
+            | DeviceClass::PowerManagementAndLightingSystems
+            | DeviceClass::Steeringsystems
+            | DeviceClass::NavigationSystems
+            | DeviceClass::CommunicationsSystems
+            | DeviceClass::InstrumentationOrGeneralSystems
+            | DeviceClass::EnvironmentalSystems
+            | DeviceClass::DeckCargoAndFishingEquipmentSystems => IndustryGroup::MarineEquipment,
 
             // Industrial Process Control
-            DeviceClass::IndustrialProcessControlStationary => IndustryGroup::IndustrialProcessControl,
+            DeviceClass::IndustrialProcessControlStationary => {
+                IndustryGroup::IndustrialProcessControl
+            }
         }
     }
 }

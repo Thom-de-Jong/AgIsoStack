@@ -1,4 +1,3 @@
-
 use crate::CanFrame;
 
 pub trait CanDriverTrait {

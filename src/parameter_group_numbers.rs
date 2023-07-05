@@ -1,5 +1,3 @@
-
-
 /// PGNs commonly used by the CAN stack.
 #[repr(u32)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -38,7 +36,7 @@ pub enum ParameterGroupNumber {
     DiagnosticMessage11 = 0x00FED3,
     CommandedAddress = 0x00FED8,
     SoftwareIdentification = 0x00FEDA,
-    AllImplementsStopOperationsSwitchState = 0x00FD02
+    AllImplementsStopOperationsSwitchState = 0x00FD02,
 }
 
 impl ParameterGroupNumber {
@@ -138,7 +136,7 @@ impl From<u32> for ParameterGroupNumber {
             0x00FED8 => Self::CommandedAddress,
             0x00FEDA => Self::SoftwareIdentification,
             0x00FD02 => Self::AllImplementsStopOperationsSwitchState,
-            _ => Self::Any
+            _ => Self::Any,
         }
     }
 }

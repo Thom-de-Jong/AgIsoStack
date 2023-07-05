@@ -9,52 +9,46 @@ extern crate alloc;
 mod can_id;
 use core::ops::Range;
 
-pub use can_id::{Id, StandardId, ExtendedId};
+pub use can_id::{ExtendedId, Id, StandardId};
 mod can_frame;
 pub use can_frame::CanFrame;
 
 // Export low level Isobus types
 mod can_message;
 pub use can_message::CanMessage;
-pub mod name;
 pub mod control_function;
+pub mod name;
 mod parameter_group_numbers;
 pub use parameter_group_numbers::ParameterGroupNumber;
-
 
 pub mod hardware_integration;
 
 // TODO: Decide if object pool manipulation is needed in de base library
 // Should it work in no_std?
 mod object_pool;
-pub use object_pool::ObjectPool;
 pub use object_pool::ObjectId;
+pub use object_pool::ObjectPool;
 
 pub mod virtual_terminal_client;
 pub use virtual_terminal_client::VirtualTerminalClient;
-
 
 // mod transport_protocol_manager;
 // mod extended_transport_protocol_manager;
 mod can_network_manager;
 pub use can_network_manager::CanNetworkManager;
 
-
-
-
-
 /// Defines all the CAN frame priorities that can be encoded in a frame ID
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum CanPriority {
-	PriorityHighest0 = 0, //< Highest CAN priority
-	Priority1 = 1, //< Priority highest - 1
-	Priority2 = 2, //< Priority highest - 2
-	Priority3 = 3, //< Priority highest - 3 (Control messages priority)
-	Priority4 = 4, //< Priority highest - 4
-	Priority5 = 5, //< Priority highest - 5
-	PriorityDefault6 = 6, //< The default priority
-	PriorityLowest7 = 7, //< The lowest priority
+    PriorityHighest0 = 0, //< Highest CAN priority
+    Priority1 = 1,        //< Priority highest - 1
+    Priority2 = 2,        //< Priority highest - 2
+    Priority3 = 3,        //< Priority highest - 3 (Control messages priority)
+    Priority4 = 4,        //< Priority highest - 4
+    Priority5 = 5,        //< Priority highest - 5
+    PriorityDefault6 = 6, //< The default priority
+    PriorityLowest7 = 7,  //< The lowest priority
 }
 impl Default for CanPriority {
     fn default() -> Self {
@@ -80,7 +74,6 @@ impl From<u8> for CanPriority {
         }
     }
 }
-
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Address(pub u8);

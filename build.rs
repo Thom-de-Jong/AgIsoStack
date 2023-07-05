@@ -7,7 +7,7 @@ fn main() {
 
     // #[cfg(not(all(feature = "std", feature = "std_time_driver")))]
     // panic!("std_time_driver requires the std feature!");
-    
+
     #[cfg(feature = "peak_can_driver")]
     println!("cargo:rustc-link-lib=PCANBasic");
 

@@ -1,8 +1,7 @@
+use super::CanDriverTrait;
+use crate::CanFrame;
 
-use crate::{CanFrame};
-use super::{CanDriverTrait};
-
-use socketcan::{ CANError, CANSocket };
+use socketcan::{CANError, CANSocket};
 
 pub struct SocketCanDriver {
     socket: Option<CANSocket>,

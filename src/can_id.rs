@@ -1,4 +1,3 @@
-
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Default, Debug)]
 pub struct StandardId(u32);
 

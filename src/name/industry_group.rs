@@ -1,10 +1,9 @@
-
 /// Enum containing all Industry Groups.
 /// ```rust
 /// use agisostack::name::IndustryGroup;
-/// 
+///
 /// let industry_group: IndustryGroup = IndustryGroup::AgriculturalAndForestryEquipment;
-/// 
+///
 /// assert_eq!(industry_group, Into::<IndustryGroup>::into(2));
 /// assert_eq!(Into::<u8>::into(industry_group), 2);
 /// ```
@@ -29,9 +28,9 @@ impl Default for IndustryGroup {
 /// Display the Industry Group name.
 /// ```rust
 /// use agisostack::name::IndustryGroup;
-/// 
+///
 /// let industry_group: IndustryGroup = IndustryGroup::AgriculturalAndForestryEquipment;
-/// 
+///
 /// assert_eq!("AgriculturalAndForestryEquipment", format!("{}", industry_group));
 /// ```
 impl core::fmt::Display for IndustryGroup {

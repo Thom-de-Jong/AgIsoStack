@@ -1,4 +1,3 @@
-
 // TODO: Rewrite like the device class.
 
 /// Enum containing all Function IDs.
@@ -50,9 +49,6 @@ impl From<u8> for FunctionCode {
     }
 }
 
-
-
-
 // /// Enum containing all Function IDs.
 // #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
 // pub enum FunctionCode {
@@ -82,7 +78,6 @@ impl From<u8> for FunctionCode {
 //         }
 //     }
 // }
-
 
 // /// Struct containing all Global Function ID's
 // #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Eq, Ord)]
@@ -349,7 +344,6 @@ impl From<u8> for FunctionCode {
 //     }
 // }
 
-
 // /// Struct containing all On Highway Equipment Function ID's
 // #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Eq, Ord)]
 // pub enum OnHighwayEquipmentFunction {
@@ -397,11 +391,7 @@ impl From<u8> for FunctionCode {
 //     }
 // }
 
-
-
-
 // TODO: implement other functions
-
 
 // 128
 // 129
@@ -412,10 +402,6 @@ impl From<u8> for FunctionCode {
 // 255
 // 255
 // 255
-
-
-
-
 
 // 128
 // 129
@@ -434,8 +420,6 @@ impl From<u8> for FunctionCode {
 // 142
 // 255
 
-
-
 // 129
 // 130
 // 131
@@ -443,22 +427,15 @@ impl From<u8> for FunctionCode {
 // 134
 // 255
 
-
-
 // 132
 // 135
 // 136
 // 255
 
-
-
-
 // 132
 // 135
 // 136
 // 255
-
-
 
 // 128
 // 129
@@ -470,9 +447,6 @@ impl From<u8> for FunctionCode {
 // 136
 // 137
 // 255
-
-
-
 
 // 128
 // 129

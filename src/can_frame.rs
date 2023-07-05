@@ -1,7 +1,6 @@
-
 // TODO: Implement embedded-can
 
-use crate::{Id, ExtendedId};
+use crate::{ExtendedId, Id};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CanFrame {

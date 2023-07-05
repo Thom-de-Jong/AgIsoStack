@@ -1,19 +1,17 @@
 pub mod reader;
 pub mod writer;
 
-use alloc::{vec::Vec, string::String};
+use alloc::{string::String, vec::Vec};
 
 use crate::name::Name;
 
 mod object_pool;
 pub use object_pool::ObjectPool;
 
-
 pub enum ParseError {
     DataEmpty,
     UnknownObjectType,
 }
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ObjectType {
@@ -348,7 +346,6 @@ impl Object {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectId(u16);
 impl ObjectId {
@@ -369,12 +366,12 @@ impl From<ObjectId> for u16 {
         val.0
     }
 }
-impl From<[u8;2]> for ObjectId {
-    fn from(val: [u8;2]) -> Self {
+impl From<[u8; 2]> for ObjectId {
+    fn from(val: [u8; 2]) -> Self {
         ObjectId(u16::from_le_bytes(val))
     }
 }
-impl From<ObjectId> for [u8;2] {
+impl From<ObjectId> for [u8; 2] {
     fn from(val: ObjectId) -> Self {
         val.0.to_le_bytes()
     }
@@ -2030,10 +2027,6 @@ pub struct ObjectLabel {
     pub font_type: u8,
     pub graphic_representation: ObjectId,
 }
-
-
-
-
 
 #[derive(Debug)]
 pub struct WorkingSet {

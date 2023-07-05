@@ -1,6 +1,5 @@
-
-use crate::CanFrame;
 use super::CanDriverTrait;
+use crate::CanFrame;
 
 pub struct MockCanDriver {}
 
@@ -11,13 +10,19 @@ impl MockCanDriver {
 }
 
 impl CanDriverTrait for MockCanDriver {
-    fn is_valid(&mut self) -> bool { true }
+    fn is_valid(&mut self) -> bool {
+        true
+    }
 
     fn open(&mut self) {}
 
     fn close(&mut self) {}
 
-    fn read(&mut self) -> Option<CanFrame> { None }
+    fn read(&mut self) -> Option<CanFrame> {
+        None
+    }
 
-    fn write(&mut self, _frame: &CanFrame) -> Result<(), ()> { Ok(()) }
+    fn write(&mut self, _frame: &CanFrame) -> Result<(), ()> {
+        Ok(())
+    }
 }

@@ -1,5 +1,4 @@
-
-use super::{IndustryGroup, DeviceClass, FunctionCode};
+use super::{DeviceClass, FunctionCode, IndustryGroup};
 
 // /// The encoded components that comprise a NAME.
 // #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
@@ -63,15 +62,30 @@ impl core::fmt::Display for Name {
 impl core::fmt::Debug for Name {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Name")
-            .field("arbitrary_address_capable", &format_args!("{}", self.arbitrary_address_capable()))
+            .field(
+                "arbitrary_address_capable",
+                &format_args!("{}", self.arbitrary_address_capable()),
+            )
             .field("industry_group", &format_args!("{}", self.industry_group()))
-            .field("device_class_instance", &format_args!("{}", self.device_class_instance()))
+            .field(
+                "device_class_instance",
+                &format_args!("{}", self.device_class_instance()),
+            )
             .field("device_class", &format_args!("{}", self.device_class()))
             .field("function_code", &format_args!("{}", self.function_code()))
-            .field("function_instance", &format_args!("{}", self.function_instance()))
+            .field(
+                "function_instance",
+                &format_args!("{}", self.function_instance()),
+            )
             .field("ecu_instance", &format_args!("{}", self.ecu_instance()))
-            .field("manufacturer_code", &format_args!("{}", self.manufacturer_code()))
-            .field("identity_number", &format_args!("{}", self.identity_number()))
+            .field(
+                "manufacturer_code",
+                &format_args!("{}", self.manufacturer_code()),
+            )
+            .field(
+                "identity_number",
+                &format_args!("{}", self.identity_number()),
+            )
             .finish()
     }
 }
@@ -105,8 +119,6 @@ impl From<Name> for [u8; 8] {
         name.value.to_le_bytes()
     }
 }
-
-
 
 #[derive(Default)]
 pub struct NameBuilder {
@@ -195,15 +207,12 @@ impl From<Name> for NameBuilder {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn name_builder() {
-        
         let name = Name::builder()
             .arbitrary_address_capable(true)
             .industry_group(0)
@@ -245,7 +254,10 @@ mod tests {
     #[test]
     fn name_device_class() {
         let name = Name::from(0b1000111100000000111111110000011100000000000111111111111111111111);
-        assert_eq!(name.device_class(), DeviceClass::NonSpecificSystem(IndustryGroup::Global));
+        assert_eq!(
+            name.device_class(),
+            DeviceClass::NonSpecificSystem(IndustryGroup::Global)
+        );
     }
 
     #[test]

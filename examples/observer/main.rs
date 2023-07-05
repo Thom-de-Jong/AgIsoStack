@@ -1,17 +1,12 @@
-
 use std::cell::RefCell;
 
-
-struct Subject<F: FnMut()>
-{
+struct Subject<F: FnMut()> {
     callback: Option<RefCell<F>>,
 }
 
 impl<F: FnMut()> Subject<F> {
     fn new() -> Subject<F> {
-        Subject {
-            callback: None,
-        }
+        Subject { callback: None }
     }
     fn attach(&mut self, callback: F) {
         self.callback = Some(RefCell::new(callback));
@@ -36,7 +31,9 @@ fn main() {
         .init();
 
     let mut subject = Subject::new();
-    let observer_a = || { println!("Callback a received event!"); };
+    let observer_a = || {
+        println!("Callback a received event!");
+    };
     // let observer_b = || { println!("Callback b received event!"); };
 
     subject.attach(&observer_a);

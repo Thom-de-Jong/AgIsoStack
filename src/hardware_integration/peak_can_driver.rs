@@ -1,8 +1,11 @@
+use super::CanDriverTrait;
+use crate::{CanFrame, ExtendedId, Id, StandardId};
 
-use crate::{CanFrame, Id, StandardId, ExtendedId};
-use super::{CanDriverTrait};
-
-use pcan_basic::{ bus::UsbBus, error::PcanError, socket::{usb::UsbCanSocket, MessageType, RecvCan, SendCan} };
+use pcan_basic::{
+    bus::UsbBus,
+    error::PcanError,
+    socket::{usb::UsbCanSocket, MessageType, RecvCan, SendCan},
+};
 
 pub struct PeakCanDriver {
     socket: Option<UsbCanSocket>,
@@ -10,9 +13,7 @@ pub struct PeakCanDriver {
 
 impl PeakCanDriver {
     pub fn new() -> Self {
-        Self {
-            socket: None,
-        }
+        Self { socket: None }
     }
 
     fn socket(&self) -> Option<&UsbCanSocket> {
@@ -57,7 +58,8 @@ impl CanDriverTrait for PeakCanDriver {
             return;
         }
 
-        self.socket = match UsbCanSocket::open(UsbBus::USB1, pcan_basic::socket::Baudrate::Baud250K) {
+        self.socket = match UsbCanSocket::open(UsbBus::USB1, pcan_basic::socket::Baudrate::Baud250K)
+        {
             Ok(socket) => Some(socket),
             Err(e) => {
                 self.log_can_error("Unable to open Peak CAN driver", Some(e));
