@@ -19,7 +19,7 @@ pub struct CanNetworkManager<'a> {
 	// fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
 
     // can_message_processors: Vec<RefCell<&'a dyn CanMessageProcessor>>,
-    control_functions_on_the_network: BTreeMap<Name, Address>,
+    control_functions_on_the_network: RefCell<BTreeMap<Name, (bool, Address)>>,
 
     // send_can_frame_buffer: Vec<CanFrame>,
     send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
@@ -38,7 +38,7 @@ impl<'a> CanNetworkManager<'a> {
             // tp_manager: TransportProtocolManager::new(),
 
             // can_message_processors: Vec::new(),
-            control_functions_on_the_network: BTreeMap::new(),
+            control_functions_on_the_network: RefCell::new(BTreeMap::new()),
 
             // send_can_frame_buffer: Vec::new(),
             send_can_frame_callback: None,
@@ -57,6 +57,15 @@ impl<'a> CanNetworkManager<'a> {
     // }
 
     pub fn send_can_message(&self, message: CanMessage) {
+        // Keep track of all the internal control functions on the network.
+        if message.pgn() == ParameterGroupNumber::AddressClaim {
+			self.update_control_functions_on_the_network(
+                message.get_name(0),
+                false,
+                message.source_address(),
+            );
+        }
+
         match message.len() {
             0..=8 => {
                 if let Ok(frame) = message.as_can_frame() {
@@ -84,23 +93,26 @@ impl<'a> CanNetworkManager<'a> {
     pub fn process_can_message(&mut self, message: CanMessage) {
         // Log all CAN traffic on the bus.
         #[cfg(feature = "log_all_can_read")]
-        log::debug!("Read: {:?}", &message);
+        log::debug!("Read: {}", &message);
 
         // Only listen to global messages and messages ment for us.
-        // let cfs = self.control_functions.borrow();
-        // if !message.is_address_global() && !cfs.iter().any(|&c| { message.is_address_specific(c.address()) }) {
-        //     return;
-        // }
+        if !message.is_address_global() &&
+            !self.control_functions_on_the_network.borrow().iter()
+            .any(|(_, (is_external, address))| { if !is_external { message.is_address_specific(*address) } else { false } })
+        {
+            return;
+        }
 
         // Log only CAN traffic ment for us.
         #[cfg(feature = "log_can_read")]
-        log::debug!("read: {:?}", &message);
+        log::debug!("read: {}", &message);
 
-        // Keep track of all the control functions on the network.
+        // Keep track of all the external control functions on the network.
         match message.pgn() {
 			ParameterGroupNumber::AddressClaim => {
                 self.update_control_functions_on_the_network(
                     message.get_name(0),
+                    true,
                     message.source_address(),
                 );
             }
@@ -135,21 +147,30 @@ impl<'a> CanNetworkManager<'a> {
     }
 
     pub fn free_address(&self) -> Option<Address> {
-        let mut list = self.control_functions_on_the_network.clone();
-        list.retain(|_, v| !Address::USER_ADDRESSES.contains(v));
-        if let Some((_, v)) = list.pop_first() {
-            Some(v)
-        } else {
-            None
-        }
+        let mut list = self.control_functions_on_the_network.borrow().clone();
+        list.retain(|_, (_, a)| !Address::USER_ADDRESSES.contains(a));
+        list.pop_first().map(|(_, (_, address))| { address })
     }
 
-    fn update_control_functions_on_the_network(&mut self, name: Name, address: Address) {
+    pub fn internal_address(&self, name: Name) -> Option<Address> {
+        self.control_functions_on_the_network.borrow().get(&name)
+            .filter(|(is_external, _)| { !is_external })
+            .map(|(_, address)| { *address })
+    }
+    pub fn external_address(&self, name: Name) -> Option<Address> {
+        self.control_functions_on_the_network.borrow().get(&name)
+            .filter(|(is_external, _)| { *is_external })
+            .map(|(_, address)| { *address })
+    }
+
+    fn update_control_functions_on_the_network(&self, name: Name, is_external: bool, address: Address) {
+        let mut list = self.control_functions_on_the_network.borrow_mut();
         if address == Address::NULL {
-            self.control_functions_on_the_network.remove(&name);
-            return;
+            list.remove(&name);
+        } else {
+            list.insert(name, (is_external, address));
         }
-        self.control_functions_on_the_network.insert(name, address);
+        log::debug!("{:?}", list);
     }
 }
 

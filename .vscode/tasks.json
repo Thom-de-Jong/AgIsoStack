@@ -1,0 +1,23 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build example",
+			"type": "cargo",
+			"command": "build",
+			"args": [
+				"--example",
+				"std"
+			],
+			"problemMatcher": [
+				"$rustc",
+				"$rust-panic"
+			],
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceRoot}"
+			},
+			"isBackground": false,
+		}
+	]
+}

@@ -45,7 +45,7 @@ pub use can_network_manager::CanNetworkManager;
 
 /// Defines all the CAN frame priorities that can be encoded in a frame ID
 #[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum CanPriority {
 	PriorityHighest0 = 0, //< Highest CAN priority
 	Priority1 = 1, //< Priority highest - 1
@@ -59,6 +59,11 @@ pub enum CanPriority {
 impl Default for CanPriority {
     fn default() -> Self {
         Self::PriorityDefault6
+    }
+}
+impl core::fmt::Display for CanPriority {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", *self as u8)
     }
 }
 impl From<u8> for CanPriority {
@@ -101,6 +106,6 @@ impl From<Address> for u8 {
 }
 impl core::fmt::Display for Address {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{}", self.0))
+        f.write_fmt(format_args!("0x{:02X?}", self.0))
     }
 }

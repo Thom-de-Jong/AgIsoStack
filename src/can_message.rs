@@ -23,18 +23,18 @@ impl CanMessage {
         }
     }
     pub fn new_from_id(id: Id, data: &[u8]) -> Self {
-        let pgn: ParameterGroupNumber = ((id.as_raw() >> 8) & 0xFFFFFF).into();
+        let pgn: ParameterGroupNumber = ((id.as_raw() >> 8) & 0x03FF00).into();
         CanMessage {
             priority: ((id.as_raw() >> 26) as u8 & 0b111).into(),
             pgn,
-            source: { Address(id.as_raw() as u8) },
-            destination: { Address(
+            source: Address(id.as_raw() as u8),
+            destination: { 
                 if pgn.is_pdu1() {
-                    0
+                    Address((id.as_raw() >> 8) as u8)
                 } else {
-                    pgn.pdu_specific()
+                    Address::GLOBAL
                 }
-            )},
+            },
             data: data.into(),
         }
     }
@@ -153,9 +153,7 @@ impl CanMessage {
 
     pub fn get_pgn_at(&self, index: usize) -> ParameterGroupNumber {
         match self.data.get(index..index+3).map(|value| {
-            let mut data: [u8; 4] = [0; 4];
-            data.copy_from_slice(value);
-            u32::from_le_bytes(data).into()
+            ParameterGroupNumber::from([value[0], value[1], value[2], 0].as_slice())
         }) {
             Some(val) => val,
             None => {
@@ -174,6 +172,20 @@ impl CanMessage {
                 Name::default()
             },
         }
+    }
+}
+
+impl core::fmt::Display for CanMessage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{{ P: {}, PGN: {:?}, S: {}, D: {}, {:02X?} }}",
+            self.priority,
+            self.pgn,
+            self.source,
+            self.destination,
+            self.data
+        )
     }
 }
 

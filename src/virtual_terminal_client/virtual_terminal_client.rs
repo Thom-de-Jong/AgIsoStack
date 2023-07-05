@@ -177,7 +177,7 @@ impl VirtualTerminalClient {
 
 		let val = self.soft_key_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_soft_key_event_listener registered! key:{key}");
+			// log::debug!("vt_soft_key_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_SOFT_KEY_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -191,7 +191,7 @@ impl VirtualTerminalClient {
 
 		let val = self.button_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_button_event_listener registered! key:{key}");
+			// log::debug!("vt_button_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_BUTTON_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -205,7 +205,7 @@ impl VirtualTerminalClient {
 
 		let val = self.pointing_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_pointing_event_listener registered! key:{key}");
+			// log::debug!("vt_pointing_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_POINTING_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -219,7 +219,7 @@ impl VirtualTerminalClient {
 
 		let val = self.select_input_object_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_select_input_object_event_listener registered! key:{key}");
+			// log::debug!("vt_select_input_object_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_SELECT_INPUT_OBJECT_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -233,7 +233,7 @@ impl VirtualTerminalClient {
 
 		let val = self.esc_message_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_esc_message_event_listener registered! key:{key}");
+			// log::debug!("vt_esc_message_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_ESC_MESSAGE_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -247,7 +247,7 @@ impl VirtualTerminalClient {
 
 		let val = self.change_numeric_value_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_change_numeric_value_event_listener registered! key:{key}");
+			// log::debug!("vt_change_numeric_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_CHANGE_NUMERIC_VALUE_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -261,7 +261,7 @@ impl VirtualTerminalClient {
 
 		let val = self.change_active_mask_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_change_active_mask_event_listener registered! key:{key}");
+			// log::debug!("vt_change_active_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_CHANGE_ACTIVE_MASK_EVENT_CALLBACK_LIST_SIZE to small!");
@@ -275,7 +275,7 @@ impl VirtualTerminalClient {
 
 		let val = self.change_soft_key_mask_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_change_soft_key_mask_event_listener registered! key:{key}");
+			// log::debug!("vt_change_soft_key_mask_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_CHANGE_SOFT_KEY_MASK_CALLBACK_LIST_SIZE to small!");
@@ -289,7 +289,7 @@ impl VirtualTerminalClient {
 
 		let val = self.change_string_value_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_change_string_value_event_listener registered! key:{key}");
+			// log::debug!("vt_change_string_value_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_CHANGE_STRING_VALUE_CALLBACK_LIST_SIZE to small!");
@@ -303,7 +303,7 @@ impl VirtualTerminalClient {
 
 		let val = self.user_layout_hide_show_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_user_layout_hide_show_event_listener registered! key:{key}");
+			// log::debug!("vt_user_layout_hide_show_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_USER_LAYOUT_HIDE_SHOW_CALLBACK_LIST_SIZE to small!");
@@ -317,7 +317,7 @@ impl VirtualTerminalClient {
 
 		let val = self.audio_signal_termination_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("vt_audio_signal_termination_event_listener registered! key:{key}");
+			// log::debug!("vt_audio_signal_termination_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("VT_AUDIO_SIGNAL_TERMINATION_CALLBACK_LIST_SIZE to small!");
@@ -331,7 +331,7 @@ impl VirtualTerminalClient {
 
 		let val = self.auxiliary_function_event_callbacks.insert(key, Box::new(callback));
 		if val.is_none() {
-			log::debug!("auxiliary_function_event_listener registered! key:{key}");
+			// log::debug!("auxiliary_function_event_listener registered! key:{key}");
 			Ok(key)
 		} else {
 			log::error!("AUXILIARY_FUNCTION_CALLBACK_LIST_SIZE to small!");
@@ -1052,7 +1052,7 @@ impl VirtualTerminalClient {
 							if message.get_u8_at(1) != 0 {
 								log::error!("[AUX-N]: Auxiliary Function Object ID of faulty assignment: {}", message.get_u16_at(2));
 							} else {
-								log::debug!("[AUX-N]: Preferred Assignment OK");
+								// log::debug!("[AUX-N]: Preferred Assignment OK");
 								// TODO: load the preferred assignment into parentVT->assignedAuxiliaryInputDevices
 							}
 						}
@@ -1511,9 +1511,7 @@ impl VirtualTerminalClient {
 					}
 				}
 			},
-			_ => {
-				log::warn!("[VT]: Client unknown message: {:?}", message.pgn());
-			},
+			_ => {},
 		}
 		handled
 	}

@@ -51,7 +51,7 @@ impl CanDriverTrait for PeakCanDriver {
     }
 
     fn open(&mut self) {
-        self.get_attached_channels();
+        // self.get_attached_channels();
 
         if self.is_valid() {
             return;

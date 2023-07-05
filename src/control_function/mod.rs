@@ -1,5 +1,5 @@
 
-use crate::{Address, name::{Name, NameFilter}};
+use crate::{Address, name::{Name, NameFilter}, CanNetworkManager};
 
 mod address_claim_state_machine;
 use address_claim_state_machine::AddressClaimStateMachine;

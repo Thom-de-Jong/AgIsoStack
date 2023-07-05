@@ -30,7 +30,7 @@ pub struct AddressClaimStateMachine {
 	timestamp: Duration, //< A timestamp used to find timeouts
 	random_claim_delay: Duration, //< The random delay as required by the ISO11783 standard
 	preferred_address: Address, //< The address we'd prefer to claim as (we may not get it)
-    claimed_address: Address, //< The actual address we ended up claiming
+	claimed_address: Address, //< The address we'd prefer to claim as (we may not get it)
     is_enabled: bool, //<  Enable/disable state for this state machine
 }
 
@@ -50,7 +50,7 @@ impl AddressClaimStateMachine {
             timestamp,
             random_claim_delay,
             preferred_address,
-            claimed_address: Address::default(),
+			claimed_address: Address::NULL,
             is_enabled: false,
         })
     }
@@ -83,7 +83,7 @@ impl AddressClaimStateMachine {
 				}
             },
 			ParameterGroupNumber::AddressClaim => {
-				if message.is_address_specific(self.claimed_address) {
+				if message.is_address_specific(self.claimed_address()) {
 					let name = message.get_name(0);
 		
 					// Check to see if another ECU is hijacking our address
@@ -91,11 +91,10 @@ impl AddressClaimStateMachine {
 					// has been stolen if we're running this logic. But, you never know, someone could be
 					// spoofing us I guess, or we could be getting an echo? CAN Bridge from another channel?
 					// Seemed safest to just confirm.
-					if name != self.name {
+					if name != self.name() {
 						// Wait for things to shake out a bit, then claim a new address.
 						self.current_state = State::WaitForRequestContentionPeriod;
-						self.claimed_address = Address::NULL;
-						log::warn!("[AC]: Internal control function {} must re-arbitrate its address because it was stolen by another ECU with NAME {name}.", self.name);
+						log::warn!("[AC]: Internal control function {} must re-arbitrate its address because it was stolen by another ECU with NAME {name}.", self.name());
 						handled = true;
 					}
 				}
@@ -133,15 +132,15 @@ impl AddressClaimStateMachine {
 					match other_name {
 						Some(name) => {
 							// Check if we are arbitrary address capable.
-							if self.name.arbitrary_address_capable() {
+							if self.name().arbitrary_address_capable() {
 								// We will move to another address if whoever is in our spot has a lower NAME.
-								if name < self.name {
+								if name < self.name() {
 									self.current_state = State::SendArbitraryAddressClaim;
 								} else {
 									self.current_state = State::SendPreferredAddressClaim;
 								}
 							} else {
-								if name > self.name {
+								if name > self.name() {
 									// Our address is not free, we cannot be at an arbitrary address, and address is contendable.
 									self.current_state = State::ContendForPreferredAddress;
 								} else {
@@ -159,18 +158,18 @@ impl AddressClaimStateMachine {
 			}
 			State::SendPreferredAddressClaim => {
 				self.send_address_claim(network_manager);
-				log::debug!("[AC]: Internal control function {} has claimed address {}", self.name, self.claimed_address);
+				log::debug!("[AC]: Internal control function {} has claimed address {}", self.name(), self.claimed_address());
 				self.current_state = State::AddressClaimingComplete;
 			}
 			State::SendArbitraryAddressClaim => {
 				// Request a free address from the network manager.
 				match network_manager.free_address() {
 					Some(address) => {
-						log::debug!("[AC]: Internal control function {} could not use the preferred address, but has claimed address {}", self.name, address);
+						log::debug!("[AC]: Internal control function {} could not use the preferred address, but has claimed address {}", self.name(), address);
 						self.current_state = State::AddressClaimingComplete;
 					},
 					None => {
-						log::debug!("[AC]: Internal control function {} failed to claim an address", self.name);
+						log::debug!("[AC]: Internal control function {} failed to claim an address", self.name());
 						self.current_state = State::UnableToClaim;
 					}
 				}
@@ -185,6 +184,9 @@ impl AddressClaimStateMachine {
     		State::UnableToClaim => {},
     		State::AddressClaimingComplete => {},
 		}
+
+		// Update our claimed address in a cache variable.
+		self.claimed_address = network_manager.internal_address(self.name()).unwrap_or_default()
 	}
 
 
@@ -207,7 +209,7 @@ impl AddressClaimStateMachine {
 	fn send_address_claim(&mut self, network_manager: &CanNetworkManager) {
 		if !self.is_enabled { return }
 
-		let data: [u8; 8] = self.name.into();
+		let data: [u8; 8] = self.name().into();
 
 		let message = CanMessage::new(
 			CanPriority::PriorityDefault6,
@@ -217,7 +219,5 @@ impl AddressClaimStateMachine {
 			&data,
 		);
 		network_manager.send_can_message(message);
-
-		self.claimed_address = self.preferred_address;
 	}
 }

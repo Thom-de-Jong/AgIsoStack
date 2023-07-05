@@ -50,11 +50,11 @@ fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     while can_driver.is_valid() {
         if let Some(frame) = can_driver.read() {
-            log::debug!("Reveived: {:?}", frame);
+            // log::debug!("Received: {}", frame);
             let _ = tx.send(frame);
         }
         if let Ok(frame) = rx.try_recv() {
-            log::debug!("Send: {:?}", frame);
+            log::debug!("Send: {}", frame);
             let _ = can_driver.write(&frame);
         }
     }
