@@ -6,8 +6,7 @@
 			"type": "cargo",
 			"command": "build",
 			"args": [
-				"--example",
-				"std"
+				"--examples",
 			],
 			"problemMatcher": [
 				"$rustc",

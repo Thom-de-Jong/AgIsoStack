@@ -27,7 +27,7 @@ pub struct CanNetworkManager<'a> {
 
     // can_message_to_send: Option<CanMessage<'a>>,
     received_can_message_queue: VecDeque<CanMessage>,
-    received_can_message_queue_iter_index: usize,
+    // received_can_message_queue_iter_index: usize,
     // global_parameter_group_number_callbacks: BTreeMap<u16, &'a dyn Fn(&CanMessage)>,
 }
 
@@ -43,7 +43,7 @@ impl<'a> CanNetworkManager<'a> {
             send_can_frame_callback: None,
 
             received_can_message_queue: VecDeque::new(),
-            received_can_message_queue_iter_index: usize::default(),
+            // received_can_message_queue_iter_index: usize::default(),
         }
     }
 
@@ -90,6 +90,9 @@ impl<'a> CanNetworkManager<'a> {
         #[cfg(feature = "log_all_can_read")]
         log::debug!("Read: {}", &message);
 
+        // log::debug!("Global: {}", message.is_address_global());
+        // log::debug!("For us: {}", self.is_address_internaly_claimed(message.destination_address()));
+
         // Only listen to global messages and messages ment for us.
         if !message.is_address_global()
             && !self.is_address_internaly_claimed(message.destination_address())
@@ -99,7 +102,7 @@ impl<'a> CanNetworkManager<'a> {
 
         // Log only CAN traffic ment for us.
         #[cfg(feature = "log_can_read")]
-        log::debug!("read: {}", &message);
+        log::debug!("Read: {}", &message);
 
         // Limit the size of the message queue, by removing the oldest messages.
         // In Rust, using the event queue is prefered over using callbacks.
@@ -117,7 +120,8 @@ impl<'a> CanNetworkManager<'a> {
                 if ParameterGroupNumber::AddressClaim == message.get_pgn_at(0) {
                     // We received a request for all claimed addresses.
                     // The network manager will handle this on behave of the internal control functions.
-                    for (name, address) in self.internal_control_functions() {
+                    let val = self.internal_control_functions();
+                    for (name, address) in val {
                         self.send_address_claim(name, address)
                     }
 
@@ -165,9 +169,15 @@ impl<'a> CanNetworkManager<'a> {
 
 
     pub fn next_free_address(&self) -> Option<Address> {
-        let mut list = self.control_functions_on_the_network.clone();
-        list.retain(|_, (_, a)| !Address::USER_ADDRESSES.contains(a));
-        list.pop_first().map(|(_, (_, address))| address)
+        for address in Address::USER_ADDRESSES {
+            self.control_functions_on_the_network
+                .iter()
+                .find(|v| {})
+        }
+        None
+        // let mut list = self.control_functions_on_the_network.clone();
+        // list.retain(|_, (_, a)| !Address::USER_ADDRESSES.contains(a));
+        // list.pop_first().map(|(_, (_, address))| address)
     }
 
 
@@ -214,7 +224,7 @@ impl<'a> CanNetworkManager<'a> {
         } else {
             self.control_functions_on_the_network.insert(name, (is_external, address));
         }
-        log::debug!("{:?}", self.control_functions_on_the_network);
+        // log::debug!("{:?}", self.control_functions_on_the_network);
     }
 
     pub fn internal_control_functions(&self) -> Vec<(Name, Address)> {
@@ -250,6 +260,8 @@ impl<'a> CanNetworkManager<'a> {
             &data,
         );
         self.send_can_message(message);
+
+        self.update_control_functions_on_the_network(name, false, address);
     }
 }
 

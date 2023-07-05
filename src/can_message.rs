@@ -49,7 +49,12 @@ impl CanMessage {
             ExtendedId::new(
                 (self.priority as u32) << 26
                     | self.pgn.as_u32() << 8
-                    | self.source_address().0 as u32,
+                    | if self.pgn().is_pdu1() {
+                        u8::from(self.destination_address()) as u32
+                    } else {
+                        0u32
+                    } << 8
+                    | u8::from(self.source_address()) as u32
             )
             .unwrap_or_default(),
         )
@@ -90,14 +95,14 @@ impl CanMessage {
         self.pgn
     }
     pub fn destination_address(&self) -> Address {
-        Address(self.pgn.pdu_specific())
+        self.destination
     }
     pub fn source_address(&self) -> Address {
         self.source
     }
 
     pub fn is_address_specific(&self, address: Address) -> bool {
-        self.pgn.is_pdu1() && self.pgn.pdu_specific() == address.0
+        self.pgn.is_pdu1() && self.destination == address
     }
     pub fn is_address_global(&self) -> bool {
         self.pgn.is_pdu2() || self.is_address_specific(Address::GLOBAL)

@@ -62,8 +62,11 @@ impl AddressClaimStateMachine {
         self.name
     }
 
-    pub fn enable(&mut self, value: bool) {
-        self.is_enabled = value;
+    pub fn enable(&mut self) {
+        self.is_enabled = true;
+    }
+    pub fn disable(&mut self) {
+        self.is_enabled = false;
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -165,7 +168,7 @@ impl AddressClaimStateMachine {
                 }
             }
             State::SendPreferredAddressClaim => {
-                network_manager.send_address_claim(self.name(), self.preferred_address);
+                self.send_address_claim(network_manager, self.name(), self.preferred_address);
                 log::debug!(
                     "[AC]: Internal control function {} has claimed address {}",
                     self.name(),
@@ -190,7 +193,7 @@ impl AddressClaimStateMachine {
                 }
             }
             State::SendReclaimAddressOnRequest => {
-                network_manager.send_address_claim(self.name(), self.preferred_address);
+                self.send_address_claim(network_manager, self.name(), self.preferred_address);
                 self.current_state = State::AddressClaimingComplete;
             }
             State::ContendForPreferredAddress => {
@@ -204,5 +207,10 @@ impl AddressClaimStateMachine {
         self.claimed_address = network_manager
             .internal_address(self.name())
             .unwrap_or_default()
+    }
+
+    pub fn send_address_claim(&mut self, network_manager: &mut CanNetworkManager, name: Name, address: Address) {
+        self.claimed_address = address;
+        network_manager.send_address_claim(name, address);
     }
 }

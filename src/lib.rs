@@ -102,3 +102,11 @@ impl core::fmt::Display for Address {
         f.write_fmt(format_args!("0x{:02X?}", self.0))
     }
 }
+
+// impl Iterator for Range<Address> {
+//     type Item = Address;
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         todo!()
+//     }
+// }
