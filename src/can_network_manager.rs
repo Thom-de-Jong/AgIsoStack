@@ -168,16 +168,14 @@ impl<'a> CanNetworkManager<'a> {
     }
 
 
-    pub fn next_free_address(&self) -> Option<Address> {
-        for address in Address::USER_ADDRESSES {
-            self.control_functions_on_the_network
-                .iter()
-                .find(|v| {})
+    pub fn next_free_address(&self, current_address: Address) -> Option<Address> {
+        for i in (current_address.0..=247).chain(128..current_address.0) {
+            let address = Address(i);
+            if !self.is_address_claimed(address) {
+                return Some(address);
+            }
         }
         None
-        // let mut list = self.control_functions_on_the_network.clone();
-        // list.retain(|_, (_, a)| !Address::USER_ADDRESSES.contains(a));
-        // list.pop_first().map(|(_, (_, address))| address)
     }
 
 

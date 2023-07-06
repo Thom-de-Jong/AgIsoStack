@@ -178,8 +178,9 @@ impl AddressClaimStateMachine {
             }
             State::SendArbitraryAddressClaim => {
                 // Request a free address from the network manager.
-                match network_manager.next_free_address() {
+                match network_manager.next_free_address(self.preferred_address) {
                     Some(address) => {
+                        self.send_address_claim(network_manager, self.name(), address);
                         log::debug!("[AC]: Internal control function {} could not use the preferred address, but has claimed address {}", self.name(), address);
                         self.current_state = State::AddressClaimingComplete;
                     }

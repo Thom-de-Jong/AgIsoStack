@@ -80,7 +80,7 @@ pub struct Address(pub u8);
 impl Address {
     pub const NULL: Address = Address(0xFE);
     pub const GLOBAL: Address = Address(0xFF);
-    pub const USER_ADDRESSES: Range<Address> = Address(0x80)..Address(0xF8);
+    // const USER_ADDRESSES: Range<Address> = Address(0x80)..Address(0xF8);
 }
 impl Default for Address {
     fn default() -> Self {
@@ -103,10 +103,10 @@ impl core::fmt::Display for Address {
     }
 }
 
-// impl Iterator for Range<Address> {
-//     type Item = Address;
+impl Iterator for Address {
+    type Item = Address;
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         todo!()
-//     }
-// }
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(Address(self.0.wrapping_add(1)))
+    }
+}
