@@ -1,463 +1,54 @@
-/// The internal state machine state of the VT client, mostly just public so tests can access it
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-enum State {
-    Disconnected,                  //< VT is not connected, and is not trying to connect yet
-    WaitForPartnerVTStatusMessage, //< VT client is initialized, waiting for a VT server to come online
-    SendWorkingSetMasterMessage,   //< Client is sending the working state master message
-    ReadyForObjectPool,            //< Client needs an object pool before connection can continue
-    SendGetMemory, //< Client is sending the "get memory" message to see if VT has enough memory available
-    WaitForGetMemoryResponse, //< Client is waiting for a response to the "get memory" message
-    SendGetNumberSoftkeys, //< Client is sending the "get number of soft keys" message
-    WaitForGetNumberSoftKeysResponse, //< Client is waiting for a response to the "get number of soft keys" message
-    SendGetTextFontData,              //< Client is sending the "get text font data" message
-    WaitForGetTextFontDataResponse, //< Client is waiting for a response to the "get text font data" message
-    SendGetHardware,                //< Client is sending the "get hardware" message
-    WaitForGetHardwareResponse, //< Client is waiting for a response to the "get hardware" message
-    SendGetVersions, //< If a version label was specified, check to see if the VT has that version already
-    WaitForGetVersionsResponse, //< Client is waiting for a response to the "get versions" message
-    SendStoreVersion, //< Sending the store version command
-    WaitForStoreVersionResponse, //< Client is waiting for a response to the store version command
-    SendLoadVersion, //< Sending the load version command
-    WaitForLoadVersionResponse, //< Client is waiting for the VT to respond to the "Load Version" command
-    UploadObjectPool,           //< Client is uploading the object pool
-    SendEndOfObjectPool,        //< Client is sending the end of object pool message
-    WaitForEndOfObjectPoolResponse, //< Client is waiting for the end of object pool response message
-    Connected, //< Client is connected to the VT server and the application layer is in control
-    Failed,    //< Client could not connect to the VT due to an error
-}
+use core::time::Duration;
 
-impl Default for State {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
+use crate::hardware_integration::{TimeDriver, TimeDriverTrait};
+use crate::{Address, CanMessage, CanNetworkManager, ObjectId, ParameterGroupNumber, CanPriority};
+
+use super::{KeyActivationCode, VTFunction, VTKeyEvent, VTVersion};
+
 
 pub struct VirtualTerminalClientStateMachine {
-
-}
-
-impl VirtualTerminalClientStateMachine {
-
-
-	pub fn update() {
-		// StateMachineState previousStateMachineState = state; // Save state to see if it changes this update
-
-        // if (nullptr != partnerControlFunction)
-        // {
-        // match self.state
-        // {
-        // 		case StateMachineState::Disconnected:
-        // 		{
-        // 			sendWorkingSetMaintenance = false;
-        // 			sendAuxiliaryMaintenance = false;
-
-        // 			if (partnerControlFunction->get_address_valid())
-        // 			{
-        // 				set_state(StateMachineState::WaitForPartnerVTStatusMessage);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForPartnerVTStatusMessage:
-        // 		{
-        // 			if (0 != lastVTStatusTimestamp_ms)
-        // 			{
-        // 				set_state(StateMachineState::SendWorkingSetMasterMessage);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendWorkingSetMasterMessage:
-        // 		{
-        // 			if (send_working_set_master())
-        // 			{
-        // 				set_state(StateMachineState::ReadyForObjectPool);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::ReadyForObjectPool:
-        // 		{
-        // 			// If we're in this state, we are ready to upload the
-        // 			// object pool but no pool has been set to this class
-        // 			// so the state machine cannot progress.
-        // 			if (SystemTiming::time_expired_ms(lastVTStatusTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Ready to upload pool, but VT server has timed out. Disconnecting.");
-        // 				set_state(StateMachineState::Disconnected);
-        // 			}
-
-        // 			if (0 != objectPools.size())
-        // 			{
-        // 				set_state(StateMachineState::SendGetMemory);
-        // 				send_working_set_maintenance(true, objectPools[0].version);
-        // 				lastWorkingSetMaintenanceTimestamp_ms = SystemTiming::get_timestamp_ms();
-        // 				sendWorkingSetMaintenance = true;
-        // 				sendAuxiliaryMaintenance = true;
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetMemory:
-        // 		{
-        // 			std::uint32_t totalPoolSize = 0;
-
-        // 			for (auto &pool : objectPools)
-        // 			{
-        // 				totalPoolSize += pool.objectPoolSize;
-        // 			}
-
-        // 			if (send_get_memory(totalPoolSize))
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetMemoryResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetMemoryResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Memory Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetNumberSoftkeys:
-        // 		{
-        // 			if (send_get_number_of_softkeys())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetNumberSoftKeysResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetNumberSoftKeysResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Number Softkeys Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetTextFontData:
-        // 		{
-        // 			if (send_get_text_font_data())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetTextFontDataResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetTextFontDataResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Text Font Data Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetHardware:
-        // 		{
-        // 			if (send_get_hardware())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetHardwareResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetHardwareResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Hardware Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetVersions:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Versions Timeout");
-        // 			}
-        // 			else if ((!objectPools.empty()) &&
-        // 			         (!objectPools[0].versionLabel.empty()) &&
-        // 			         (send_get_versions()))
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetVersionsResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetVersionsResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Versions Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendLoadVersion:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Send Load Version Timeout");
-        // 			}
-        // 			else
-        // 			{
-        // 				constexpr std::uint8_t VERSION_LABEL_LENGTH = 7;
-        // 				std::array<std::uint8_t, VERSION_LABEL_LENGTH> tempVersionBuffer;
-
-        // 				// Unused bytes filled with spaces
-        // 				tempVersionBuffer[0] = ' ';
-        // 				tempVersionBuffer[1] = ' ';
-        // 				tempVersionBuffer[2] = ' ';
-        // 				tempVersionBuffer[3] = ' ';
-        // 				tempVersionBuffer[4] = ' ';
-        // 				tempVersionBuffer[5] = ' ';
-        // 				tempVersionBuffer[6] = ' ';
-
-        // 				for (std::size_t i = 0; ((i < VERSION_LABEL_LENGTH) && (i < objectPools[0].versionLabel.size())); i++)
-        // 				{
-        // 					tempVersionBuffer[i] = objectPools[0].versionLabel[i];
-        // 				}
-
-        // 				if (send_load_version(tempVersionBuffer))
-        // 				{
-        // 					set_state(StateMachineState::WaitForLoadVersionResponse);
-        // 				}
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForLoadVersionResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Load Version Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendStoreVersion:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Send Store Version Timeout");
-        // 			}
-        // 			else
-        // 			{
-        // 				constexpr std::uint8_t VERSION_LABEL_LENGTH = 7;
-        // 				std::array<std::uint8_t, VERSION_LABEL_LENGTH> tempVersionBuffer;
-
-        // 				// Unused bytes filled with spaces
-        // 				tempVersionBuffer[0] = ' ';
-        // 				tempVersionBuffer[1] = ' ';
-        // 				tempVersionBuffer[2] = ' ';
-        // 				tempVersionBuffer[3] = ' ';
-        // 				tempVersionBuffer[4] = ' ';
-        // 				tempVersionBuffer[5] = ' ';
-        // 				tempVersionBuffer[6] = ' ';
-
-        // 				for (std::size_t i = 0; ((i < VERSION_LABEL_LENGTH) && (i < objectPools[0].versionLabel.size())); i++)
-        // 				{
-        // 					tempVersionBuffer[i] = objectPools[0].versionLabel[i];
-        // 				}
-
-        // 				if (send_store_version(tempVersionBuffer))
-        // 				{
-        // 					set_state(StateMachineState::WaitForStoreVersionResponse);
-        // 				}
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForStoreVersionResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Store Version Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::UploadObjectPool:
-        // 		{
-        // 			bool allPoolsProcessed = true;
-
-        // 			if (firstTimeInState)
-        // 			{
-        // 				if (get_any_pool_needs_scaling())
-        // 				{
-        // 					// Scale object pools before upload.
-        // 					if (!scale_object_pools())
-        // 					{
-        // 						set_state(StateMachineState::Failed);
-        // 					}
-        // 				}
-        // 			}
-
-        // 			for (std::uint32_t i = 0; i < objectPools.size(); i++)
-        // 			{
-        // 				if (((nullptr != objectPools[i].objectPoolDataPointer) ||
-        // 				     (nullptr != objectPools[i].dataCallback)) &&
-        // 				    (objectPools[i].objectPoolSize > 0))
-        // 				{
-        // 					if (!objectPools[i].uploaded)
-        // 					{
-        // 						allPoolsProcessed = false;
-        // 					}
-
-        // 					if (CurrentObjectPoolUploadState::Uninitialized == currentObjectPoolState)
-        // 					{
-        // 						if (!objectPools[i].uploaded)
-        // 						{
-        // 							bool transmitSuccessful = CANNetworkManager::CANNetwork.send_can_message(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal),
-        // 							                                                                         nullptr,
-        // 							                                                                         objectPools[i].objectPoolSize + 1, // Account for Mux byte
-        // 							                                                                         myControlFunction.get(),
-        // 							                                                                         partnerControlFunction.get(),
-        // 							                                                                         CANIdentifier::CANPriority::PriorityLowest7,
-        // 							                                                                         process_callback,
-        // 							                                                                         this,
-        // 							                                                                         process_internal_object_pool_upload_callback);
-
-        // 							if (transmitSuccessful)
-        // 							{
-        // 								currentObjectPoolState = CurrentObjectPoolUploadState::InProgress;
-        // 							}
-        // 						}
-        // 						else
-        // 						{
-        // 							// Pool already uploaded, move on to the next one
-        // 						}
-        // 					}
-        // 					else if (CurrentObjectPoolUploadState::Success == currentObjectPoolState)
-        // 					{
-        // 						objectPools[i].uploaded = true;
-        // 						currentObjectPoolState = CurrentObjectPoolUploadState::Uninitialized;
-        // 					}
-        // 					else if (CurrentObjectPoolUploadState::Failed == currentObjectPoolState)
-        // 					{
-        // 						currentObjectPoolState = CurrentObjectPoolUploadState::Uninitialized;
-        // 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: An object pool failed to upload. Resetting connection to VT.");
-        // 						set_state(StateMachineState::Disconnected);
-        // 					}
-        // 					else
-        // 					{
-        // 						// Transfer is in progress. Nothing to do now.
-        // 						break;
-        // 					}
-        // 				}
-        // 				else
-        // 				{
-        // 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: An object pool was supplied with an invalid size or pointer. Ignoring it.");
-        // 					objectPools[i].uploaded = true;
-        // 				}
-        // 			}
-
-        // 			if (allPoolsProcessed)
-        // 			{
-        // 				set_state(StateMachineState::SendEndOfObjectPool);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendEndOfObjectPool:
-        // 		{
-        // 			if (send_end_of_object_pool())
-        // 			{
-        // 				set_state(StateMachineState::WaitForEndOfObjectPoolResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForEndOfObjectPoolResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get End of Object Pool Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::Connected:
-        // 		{
-        // 			// Check for timeouts
-        // 			if (SystemTiming::time_expired_ms(lastVTStatusTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Disconnected);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Status Timeout");
-        // 			}
-        // 			update_auxiliary_input_status();
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::Failed:
-        // 		{
-        // 			constexpr std::uint32_t VT_STATE_MACHINE_RETRY_TIMEOUT_MS = 5000;
-        // 			sendWorkingSetMaintenance = false;
-        // 			sendAuxiliaryMaintenance = false;
-
-        // 			// Retry connecting after a while
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATE_MACHINE_RETRY_TIMEOUT_MS))
-        // 			{
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Resetting Failed VT Connection");
-        // 				set_state(StateMachineState::Disconnected);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		default:
-        // 		{
-        // 		}
-        // 		break;
-        // 	}
-        // }
-        // else
-        // {
-        // 	set_state(StateMachineState::Disconnected);
-        // }
-
-        // if ((sendWorkingSetMaintenance) &&
-        //     (SystemTiming::time_expired_ms(lastWorkingSetMaintenanceTimestamp_ms, WORKING_SET_MAINTENANCE_TIMEOUT_MS)))
-        // {
-        // 	txFlags.set_flag(static_cast<std::uint32_t>(TransmitFlags::SendWorkingSetMaintenance));
-        // }
-        // if ((sendAuxiliaryMaintenance) &&
-        //     (!ourAuxiliaryInputs.empty()) &&
-        //     (SystemTiming::time_expired_ms(lastAuxiliaryMaintenanceTimestamp_ms, AUXILIARY_MAINTENANCE_TIMEOUT_MS)))
-        // {
-        // 	/// @todo We should make sure that when we disconnect/reconnect atleast 500ms has passed since the last auxiliary maintenance message
-        // 	txFlags.set_flag(static_cast<std::uint32_t>(TransmitFlags::SendAuxiliaryMaintenance));
-        // }
-        // txFlags.process_all_flags();
-
-        // if (state == previousStateMachineState)
-        // {
-        // 	firstTimeInState = false;
-        // }
-	}
-
+    
 }
 
 impl VirtualTerminalClientStateMachine {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            current_state: State::default(),
+            is_enabled: false,
+
+            last_vtstatus_timestamp_ms: Duration::default(),
+            active_working_set_master_address: Address::NULL,
+            active_working_set_data_mask_object_id: ObjectId::NULL,
+            active_working_set_soft_key_mask_object_id: ObjectId::NULL,
+            busy_codes_bitfield: u8::default(),
+            current_command_function_code: u8::default(),
+
+            connected_vt_version: VTVersion::default(),
+        }
     }
+
+    pub fn is_connected(&self) -> bool {
+        
+    }
+
+    pub fn process_can_message(&mut self, message: &CanMessage) -> bool {
+        if message.pgn() != ParameterGroupNumber::VirtualTerminalToECU {
+            return false;
+        }
+
+        let handled = false;
+        if let Ok(vt_function) = message.get_u8_at(0).try_into() {
+            match vt_function {
+                
+                _ => {}
+            }
+        }
+        handled
+    }
+
+    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+        
+    }
+
+
 }
