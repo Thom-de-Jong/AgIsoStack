@@ -118,14 +118,16 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // Bind callbacks to VTC events.
     // These callbacks will provide us with event driven notifications of button presses from the stack.
     // Using a channel we can send events to the isobus_task to be processed.
-    let vt_soft_key_event_listener_channel = event_tx.clone();
-    let vt_button_event_listener_channel = event_tx.clone();
-    let _ = test_virtual_terminal_client.add_vt_soft_key_event_listener(move |e| {
-        let _ = vt_soft_key_event_listener_channel.send(e);
-    });
-    let _ = test_virtual_terminal_client.add_vt_button_event_listener(move |e| {
-        let _ = vt_button_event_listener_channel.send(e);
-    });
+    let vt_soft_key_event_listener_callback = |e| {
+        let _ = event_tx.send(e);
+    };
+    let vt_button_event_listener_callback = |e| {
+        let _ = event_tx.send(e);
+    };
+    let _ = test_virtual_terminal_client
+        .add_vt_soft_key_event_listener(&vt_soft_key_event_listener_callback);
+    let _ = test_virtual_terminal_client
+        .add_vt_button_event_listener(&vt_button_event_listener_callback);
 
     // Initialize the VTC.
     test_virtual_terminal_client.initialize();

@@ -1,4 +1,7 @@
-use alloc::{collections::{BTreeMap, VecDeque}, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, VecDeque},
+    vec::Vec,
+};
 
 use crate::{
     name::Name,
@@ -6,7 +9,8 @@ use crate::{
     Address,
     CanFrame,
     CanMessage,
-    ParameterGroupNumber, CanPriority,
+    CanPriority,
+    ParameterGroupNumber,
 };
 
 // const MAX_CAN_FRAMES_SEND_PER_PROCESS: u8 = 255;
@@ -127,7 +131,7 @@ impl<'a> CanNetworkManager<'a> {
 
                     handled = true;
                 }
-            },
+            }
             ParameterGroupNumber::AddressClaim => {
                 self.update_control_functions_on_the_network(
                     message.get_name(0),
@@ -167,7 +171,6 @@ impl<'a> CanNetworkManager<'a> {
         self.received_can_message_queue.retain(move |m| !f(m));
     }
 
-
     pub fn next_free_address(&self, current_address: Address) -> Option<Address> {
         for i in (current_address.0..=247).chain(128..current_address.0) {
             let address = Address(i);
@@ -178,12 +181,15 @@ impl<'a> CanNetworkManager<'a> {
         None
     }
 
-
     pub fn is_address_claimed(&self, address: Address) -> bool {
-        self.control_functions_on_the_network.values().any(|(_, a)| *a == address)
+        self.control_functions_on_the_network
+            .values()
+            .any(|(_, a)| *a == address)
     }
     pub fn is_address_internaly_claimed(&self, address: Address) -> bool {
-        self.control_functions_on_the_network.values().any(|(is_external, a)| !*is_external && *a == address)
+        self.control_functions_on_the_network
+            .values()
+            .any(|(is_external, a)| !*is_external && *a == address)
     }
 
     pub fn get_name_by_address(&self, address: Address) -> Option<Name> {
@@ -220,7 +226,8 @@ impl<'a> CanNetworkManager<'a> {
         if address == Address::NULL {
             self.control_functions_on_the_network.remove(&name);
         } else {
-            self.control_functions_on_the_network.insert(name, (is_external, address));
+            self.control_functions_on_the_network
+                .insert(name, (is_external, address));
         }
         // log::debug!("{:?}", self.control_functions_on_the_network);
     }
@@ -228,11 +235,10 @@ impl<'a> CanNetworkManager<'a> {
     pub fn internal_control_functions(&self) -> Vec<(Name, Address)> {
         self.control_functions_on_the_network
             .iter()
-            .filter(|(_, (is_external, _))|  !is_external )
+            .filter(|(_, (is_external, _))| !is_external)
             .map(|(name, (_, address))| (*name, *address))
             .collect()
     }
-    
 
     pub fn send_request_to_claim(&mut self) {
         let data: [u8; 3] = ParameterGroupNumber::AddressClaim.into();

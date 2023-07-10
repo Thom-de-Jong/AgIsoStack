@@ -3,7 +3,7 @@ use core::time::Duration;
 use crate::{
     hardware_integration::{TimeDriver, TimeDriverTrait},
     name::Name,
-    Address, CanMessage, CanNetworkManager, CanPriority, ParameterGroupNumber,
+    Address, CanMessage, CanNetworkManager, ParameterGroupNumber,
 };
 
 /// Defines the state machine states for address claiming
@@ -16,9 +16,9 @@ enum State {
     SendPreferredAddressClaim,      //< State machine is claiming the preferred address
     ContendForPreferredAddress,     //< State machine is contending the preferred address
     SendArbitraryAddressClaim,      //< State machine is claiming an address
-    SendReclaimAddressOnRequest, //< An ECU requested address claim, inform the bus of our current address
-    UnableToClaim,               //< State machine could not claim an address
-    AddressClaimingComplete,     //< Addres claiming is complete and we have an address
+    SendReclaimAddressOnRequest,    //< An ECU requested address claim, inform the bus of our current address
+    UnableToClaim,                  //< State machine could not claim an address
+    AddressClaimingComplete,        //< Addres claiming is complete and we have an address
 }
 
 impl Default for State {
@@ -69,9 +69,9 @@ impl AddressClaimStateMachine {
         self.is_enabled = false;
     }
 
-    pub fn is_enabled(&self) -> bool {
-        self.is_enabled
-    }
+    // pub fn is_enabled(&self) -> bool {
+    //     self.is_enabled
+    // }
 
     pub fn claimed_address(&self) -> Address {
         self.claimed_address
@@ -210,7 +210,12 @@ impl AddressClaimStateMachine {
             .unwrap_or_default()
     }
 
-    pub fn send_address_claim(&mut self, network_manager: &mut CanNetworkManager, name: Name, address: Address) {
+    pub fn send_address_claim(
+        &mut self,
+        network_manager: &mut CanNetworkManager,
+        name: Name,
+        address: Address,
+    ) {
         self.claimed_address = address;
         network_manager.send_address_claim(name, address);
     }

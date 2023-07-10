@@ -28,6 +28,10 @@ impl InternalControlFunction {
         self.state_machine.enable();
     }
 
+    pub fn terminate(&mut self) {
+        self.state_machine.disable();
+    }
+
     pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
         // Process received messages and update internal state.
         network_manager.handle_message(|message| self.state_machine.process_can_message(message));

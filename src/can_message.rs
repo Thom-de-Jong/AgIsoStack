@@ -54,7 +54,7 @@ impl CanMessage {
                     } else {
                         0u32
                     } << 8
-                    | u8::from(self.source_address()) as u32
+                    | u8::from(self.source_address()) as u32,
             )
             .unwrap_or_default(),
         )

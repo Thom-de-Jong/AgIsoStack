@@ -36,6 +36,12 @@ impl StandardId {
     }
 }
 
+impl core::fmt::Display for StandardId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "0x{:03X}", self.0)
+    }
+}
+
 /// Extended 29-bit CAN Identifier (`0..=1FFF_FFFF`).
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Default, Debug)]
 pub struct ExtendedId(u32);
@@ -81,6 +87,12 @@ impl ExtendedId {
     }
 }
 
+impl core::fmt::Display for ExtendedId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "0x{:08X}", self.0)
+    }
+}
+
 /// A CAN Identifier (standard or extended).
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Id {
@@ -93,6 +105,15 @@ impl Id {
         match self {
             Id::Standard(id) => id.as_raw(),
             Id::Extended(id) => id.as_raw(),
+        }
+    }
+}
+
+impl core::fmt::Display for Id {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Id::Standard(id) => write!(f, "{}", id),
+            Id::Extended(id) => write!(f, "{}", id),
         }
     }
 }

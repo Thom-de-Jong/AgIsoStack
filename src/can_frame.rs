@@ -46,13 +46,7 @@ impl CanFrame {
 
 impl core::fmt::Display for CanFrame {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "0x{:08X}, {}, {:02X?}",
-            self.id().as_raw(),
-            self.dlc(),
-            &self.data
-        )
+        write!(f, "{}, {}, {:02X?}", self.id(), self.dlc(), &self.data)
     }
 }
 

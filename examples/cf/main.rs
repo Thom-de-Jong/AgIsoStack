@@ -1,9 +1,6 @@
 use std::{sync::mpsc::*, thread, time::Duration};
 
-use agisostack::{
-    control_function::*, name::*, Address,
-    CanFrame, CanNetworkManager,
-};
+use agisostack::{control_function::*, name::*, Address, CanFrame, CanNetworkManager};
 
 fn main() {
     // Setup the logging interface.

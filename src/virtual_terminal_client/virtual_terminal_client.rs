@@ -1,6 +1,5 @@
 use core::time::Duration;
 
-use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, VecDeque};
 
 use crate::hardware_integration::{TimeDriver, TimeDriverTrait};
@@ -13,7 +12,7 @@ use super::*;
 
 const MAX_EVENT_QUEUE_SIZE: usize = 32;
 
-pub struct VirtualTerminalClient {
+pub struct VirtualTerminalClient<'a> {
     state_machine: VirtualTerminalClientStateMachine,
 
     partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
@@ -31,26 +30,26 @@ pub struct VirtualTerminalClient {
 
     event_queue: VecDeque<Event>,
 
-    soft_key_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTKeyEvent)>>,
-    button_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTKeyEvent)>>,
-    pointing_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTPointingEvent)>>,
-    select_input_object_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTSelectInputObjectEvent)>>,
-    esc_message_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTESCMessageEvent)>>,
-    change_numeric_value_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTChangeNumericValueEvent)>>,
-    change_active_mask_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTChangeActiveMaskEvent)>>,
-    change_soft_key_mask_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTChangeSoftKeyMaskEvent)>>,
-    change_string_value_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTChangeStringValueEvent)>>,
-    user_layout_hide_show_event_callbacks: BTreeMap<usize, Box<dyn Fn(VTUserLayoutHideShowEvent)>>,
+    soft_key_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTKeyEvent)>,
+    button_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTKeyEvent)>,
+    pointing_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTPointingEvent)>,
+    select_input_object_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTSelectInputObjectEvent)>,
+    esc_message_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTESCMessageEvent)>,
+    change_numeric_value_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTChangeNumericValueEvent)>,
+    change_active_mask_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTChangeActiveMaskEvent)>,
+    change_soft_key_mask_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTChangeSoftKeyMaskEvent)>,
+    change_string_value_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTChangeStringValueEvent)>,
+    user_layout_hide_show_event_callbacks: BTreeMap<usize, &'a dyn Fn(VTUserLayoutHideShowEvent)>,
     audio_signal_termination_event_callbacks:
-        BTreeMap<usize, Box<dyn Fn(VTAudioSignalTerminationEvent)>>,
-    auxiliary_function_event_callbacks: BTreeMap<usize, Box<dyn Fn(AuxiliaryFunctionEvent)>>,
+        BTreeMap<usize, &'a dyn Fn(VTAudioSignalTerminationEvent)>,
+    auxiliary_function_event_callbacks: BTreeMap<usize, &'a dyn Fn(AuxiliaryFunctionEvent)>,
 }
 
-impl VirtualTerminalClient {
+impl<'a> VirtualTerminalClient<'a> {
     pub fn new(
         partner: PartneredControlFunction,
         client: InternalControlFunction,
-    ) -> VirtualTerminalClient {
+    ) -> VirtualTerminalClient<'a> {
         let vtc = VirtualTerminalClient {
             state_machine: VirtualTerminalClientStateMachine::new(),
 
@@ -130,7 +129,7 @@ impl VirtualTerminalClient {
     }
 
     pub fn restart_communication(&mut self) {
-        log::info!("[VT]:VT Client connection restart requested. Client will now terminate and reinitialize.");
+        log::info!("[VT]: VT Client connection restart requested. Client will now terminate and reinitialize.");
         self.terminate();
         self.initialize();
     }
@@ -173,16 +172,14 @@ impl VirtualTerminalClient {
         self.event_queue.pop_front()
     }
 
-    pub fn add_vt_soft_key_event_listener<F: Fn(VTKeyEvent) + 'static>(
+    pub fn add_vt_soft_key_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTKeyEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
-        let val = self
-            .soft_key_event_callbacks
-            .insert(key, Box::new(callback));
+        let val = self.soft_key_event_callbacks.insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_soft_key_event_listener registered! key:{key}");
             Ok(key)
@@ -192,14 +189,14 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_button_event_listener<F: Fn(VTKeyEvent) + 'static>(
+    pub fn add_vt_button_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTKeyEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
-        let val = self.button_event_callbacks.insert(key, Box::new(callback));
+        let val = self.button_event_callbacks.insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_button_event_listener registered! key:{key}");
             Ok(key)
@@ -209,16 +206,14 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_pointing_event_listener<F: Fn(VTPointingEvent) + 'static>(
+    pub fn add_vt_pointing_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTPointingEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
-        let val = self
-            .pointing_event_callbacks
-            .insert(key, Box::new(callback));
+        let val = self.pointing_event_callbacks.insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_pointing_event_listener registered! key:{key}");
             Ok(key)
@@ -228,16 +223,16 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_select_input_object_event_listener<F: Fn(VTSelectInputObjectEvent) + 'static>(
+    pub fn add_vt_select_input_object_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTSelectInputObjectEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .select_input_object_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_select_input_object_event_listener registered! key:{key}");
             Ok(key)
@@ -247,16 +242,14 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_esc_message_event_listener<F: Fn(VTESCMessageEvent) + 'static>(
+    pub fn add_vt_esc_message_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTESCMessageEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
-        let val = self
-            .esc_message_event_callbacks
-            .insert(key, Box::new(callback));
+        let val = self.esc_message_event_callbacks.insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_esc_message_event_listener registered! key:{key}");
             Ok(key)
@@ -270,14 +263,14 @@ impl VirtualTerminalClient {
         F: Fn(VTChangeNumericValueEvent) + 'static,
     >(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTChangeNumericValueEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .change_numeric_value_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_change_numeric_value_event_listener registered! key:{key}");
             Ok(key)
@@ -287,16 +280,16 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_change_active_mask_event_listener<F: Fn(VTChangeActiveMaskEvent) + 'static>(
+    pub fn add_vt_change_active_mask_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTChangeActiveMaskEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .change_active_mask_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_change_active_mask_event_listener registered! key:{key}");
             Ok(key)
@@ -306,16 +299,16 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_change_soft_key_mask_event_listener<F: Fn(VTChangeSoftKeyMaskEvent) + 'static>(
+    pub fn add_vt_change_soft_key_mask_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTChangeSoftKeyMaskEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .change_soft_key_mask_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_change_soft_key_mask_event_listener registered! key:{key}");
             Ok(key)
@@ -325,16 +318,16 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_vt_change_string_value_event_listener<F: Fn(VTChangeStringValueEvent) + 'static>(
+    pub fn add_vt_change_string_value_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTChangeStringValueEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .change_string_value_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_change_string_value_event_listener registered! key:{key}");
             Ok(key)
@@ -348,14 +341,14 @@ impl VirtualTerminalClient {
         F: Fn(VTUserLayoutHideShowEvent) + 'static,
     >(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTUserLayoutHideShowEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .user_layout_hide_show_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_user_layout_hide_show_event_listener registered! key:{key}");
             Ok(key)
@@ -369,14 +362,14 @@ impl VirtualTerminalClient {
         F: Fn(VTAudioSignalTerminationEvent) + 'static,
     >(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(VTAudioSignalTerminationEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .audio_signal_termination_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("vt_audio_signal_termination_event_listener registered! key:{key}");
             Ok(key)
@@ -386,16 +379,16 @@ impl VirtualTerminalClient {
         }
     }
 
-    pub fn add_auxiliary_function_event_listener<F: Fn(AuxiliaryFunctionEvent) + 'static>(
+    pub fn add_auxiliary_function_event_listener(
         &mut self,
-        callback: F,
+        callback: &'a dyn Fn(AuxiliaryFunctionEvent),
     ) -> Result<usize, ()> {
         // Generate a key based on raw address (extreamly unsafe)
         let key: usize = unsafe { core::mem::transmute(&callback) };
 
         let val = self
             .auxiliary_function_event_callbacks
-            .insert(key, Box::new(callback));
+            .insert(key, callback);
         if val.is_none() {
             // log::debug!("auxiliary_function_event_listener registered! key:{key}");
             Ok(key)
@@ -497,419 +490,7 @@ impl VirtualTerminalClient {
         }
 
         // Do stuff based on the current internal state.
-
-        // StateMachineState previousStateMachineState = state; // Save state to see if it changes this update
-
-        // if (nullptr != partnerControlFunction)
-        // {
-        // match self.state
-        // {
-        // 		case StateMachineState::Disconnected:
-        // 		{
-        // 			sendWorkingSetMaintenance = false;
-        // 			sendAuxiliaryMaintenance = false;
-
-        // 			if (partnerControlFunction->get_address_valid())
-        // 			{
-        // 				set_state(StateMachineState::WaitForPartnerVTStatusMessage);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForPartnerVTStatusMessage:
-        // 		{
-        // 			if (0 != lastVTStatusTimestamp_ms)
-        // 			{
-        // 				set_state(StateMachineState::SendWorkingSetMasterMessage);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendWorkingSetMasterMessage:
-        // 		{
-        // 			if (send_working_set_master())
-        // 			{
-        // 				set_state(StateMachineState::ReadyForObjectPool);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::ReadyForObjectPool:
-        // 		{
-        // 			// If we're in this state, we are ready to upload the
-        // 			// object pool but no pool has been set to this class
-        // 			// so the state machine cannot progress.
-        // 			if (SystemTiming::time_expired_ms(lastVTStatusTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Ready to upload pool, but VT server has timed out. Disconnecting.");
-        // 				set_state(StateMachineState::Disconnected);
-        // 			}
-
-        // 			if (0 != objectPools.size())
-        // 			{
-        // 				set_state(StateMachineState::SendGetMemory);
-        // 				send_working_set_maintenance(true, objectPools[0].version);
-        // 				lastWorkingSetMaintenanceTimestamp_ms = SystemTiming::get_timestamp_ms();
-        // 				sendWorkingSetMaintenance = true;
-        // 				sendAuxiliaryMaintenance = true;
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetMemory:
-        // 		{
-        // 			std::uint32_t totalPoolSize = 0;
-
-        // 			for (auto &pool : objectPools)
-        // 			{
-        // 				totalPoolSize += pool.objectPoolSize;
-        // 			}
-
-        // 			if (send_get_memory(totalPoolSize))
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetMemoryResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetMemoryResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Memory Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetNumberSoftkeys:
-        // 		{
-        // 			if (send_get_number_of_softkeys())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetNumberSoftKeysResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetNumberSoftKeysResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Number Softkeys Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetTextFontData:
-        // 		{
-        // 			if (send_get_text_font_data())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetTextFontDataResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetTextFontDataResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Text Font Data Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetHardware:
-        // 		{
-        // 			if (send_get_hardware())
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetHardwareResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetHardwareResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Hardware Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendGetVersions:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Versions Timeout");
-        // 			}
-        // 			else if ((!objectPools.empty()) &&
-        // 			         (!objectPools[0].versionLabel.empty()) &&
-        // 			         (send_get_versions()))
-        // 			{
-        // 				set_state(StateMachineState::WaitForGetVersionsResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForGetVersionsResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get Versions Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendLoadVersion:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Send Load Version Timeout");
-        // 			}
-        // 			else
-        // 			{
-        // 				constexpr std::uint8_t VERSION_LABEL_LENGTH = 7;
-        // 				std::array<std::uint8_t, VERSION_LABEL_LENGTH> tempVersionBuffer;
-
-        // 				// Unused bytes filled with spaces
-        // 				tempVersionBuffer[0] = ' ';
-        // 				tempVersionBuffer[1] = ' ';
-        // 				tempVersionBuffer[2] = ' ';
-        // 				tempVersionBuffer[3] = ' ';
-        // 				tempVersionBuffer[4] = ' ';
-        // 				tempVersionBuffer[5] = ' ';
-        // 				tempVersionBuffer[6] = ' ';
-
-        // 				for (std::size_t i = 0; ((i < VERSION_LABEL_LENGTH) && (i < objectPools[0].versionLabel.size())); i++)
-        // 				{
-        // 					tempVersionBuffer[i] = objectPools[0].versionLabel[i];
-        // 				}
-
-        // 				if (send_load_version(tempVersionBuffer))
-        // 				{
-        // 					set_state(StateMachineState::WaitForLoadVersionResponse);
-        // 				}
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForLoadVersionResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Load Version Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendStoreVersion:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Send Store Version Timeout");
-        // 			}
-        // 			else
-        // 			{
-        // 				constexpr std::uint8_t VERSION_LABEL_LENGTH = 7;
-        // 				std::array<std::uint8_t, VERSION_LABEL_LENGTH> tempVersionBuffer;
-
-        // 				// Unused bytes filled with spaces
-        // 				tempVersionBuffer[0] = ' ';
-        // 				tempVersionBuffer[1] = ' ';
-        // 				tempVersionBuffer[2] = ' ';
-        // 				tempVersionBuffer[3] = ' ';
-        // 				tempVersionBuffer[4] = ' ';
-        // 				tempVersionBuffer[5] = ' ';
-        // 				tempVersionBuffer[6] = ' ';
-
-        // 				for (std::size_t i = 0; ((i < VERSION_LABEL_LENGTH) && (i < objectPools[0].versionLabel.size())); i++)
-        // 				{
-        // 					tempVersionBuffer[i] = objectPools[0].versionLabel[i];
-        // 				}
-
-        // 				if (send_store_version(tempVersionBuffer))
-        // 				{
-        // 					set_state(StateMachineState::WaitForStoreVersionResponse);
-        // 				}
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForStoreVersionResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Store Version Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::UploadObjectPool:
-        // 		{
-        // 			bool allPoolsProcessed = true;
-
-        // 			if (firstTimeInState)
-        // 			{
-        // 				if (get_any_pool_needs_scaling())
-        // 				{
-        // 					// Scale object pools before upload.
-        // 					if (!scale_object_pools())
-        // 					{
-        // 						set_state(StateMachineState::Failed);
-        // 					}
-        // 				}
-        // 			}
-
-        // 			for (std::uint32_t i = 0; i < objectPools.size(); i++)
-        // 			{
-        // 				if (((nullptr != objectPools[i].objectPoolDataPointer) ||
-        // 				     (nullptr != objectPools[i].dataCallback)) &&
-        // 				    (objectPools[i].objectPoolSize > 0))
-        // 				{
-        // 					if (!objectPools[i].uploaded)
-        // 					{
-        // 						allPoolsProcessed = false;
-        // 					}
-
-        // 					if (CurrentObjectPoolUploadState::Uninitialized == currentObjectPoolState)
-        // 					{
-        // 						if (!objectPools[i].uploaded)
-        // 						{
-        // 							bool transmitSuccessful = CANNetworkManager::CANNetwork.send_can_message(static_cast<std::uint32_t>(CANLibParameterGroupNumber::ECUtoVirtualTerminal),
-        // 							                                                                         nullptr,
-        // 							                                                                         objectPools[i].objectPoolSize + 1, // Account for Mux byte
-        // 							                                                                         myControlFunction.get(),
-        // 							                                                                         partnerControlFunction.get(),
-        // 							                                                                         CANIdentifier::CANPriority::PriorityLowest7,
-        // 							                                                                         process_callback,
-        // 							                                                                         this,
-        // 							                                                                         process_internal_object_pool_upload_callback);
-
-        // 							if (transmitSuccessful)
-        // 							{
-        // 								currentObjectPoolState = CurrentObjectPoolUploadState::InProgress;
-        // 							}
-        // 						}
-        // 						else
-        // 						{
-        // 							// Pool already uploaded, move on to the next one
-        // 						}
-        // 					}
-        // 					else if (CurrentObjectPoolUploadState::Success == currentObjectPoolState)
-        // 					{
-        // 						objectPools[i].uploaded = true;
-        // 						currentObjectPoolState = CurrentObjectPoolUploadState::Uninitialized;
-        // 					}
-        // 					else if (CurrentObjectPoolUploadState::Failed == currentObjectPoolState)
-        // 					{
-        // 						currentObjectPoolState = CurrentObjectPoolUploadState::Uninitialized;
-        // 						CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: An object pool failed to upload. Resetting connection to VT.");
-        // 						set_state(StateMachineState::Disconnected);
-        // 					}
-        // 					else
-        // 					{
-        // 						// Transfer is in progress. Nothing to do now.
-        // 						break;
-        // 					}
-        // 				}
-        // 				else
-        // 				{
-        // 					CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Warning, "[VT]: An object pool was supplied with an invalid size or pointer. Ignoring it.");
-        // 					objectPools[i].uploaded = true;
-        // 				}
-        // 			}
-
-        // 			if (allPoolsProcessed)
-        // 			{
-        // 				set_state(StateMachineState::SendEndOfObjectPool);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::SendEndOfObjectPool:
-        // 		{
-        // 			if (send_end_of_object_pool())
-        // 			{
-        // 				set_state(StateMachineState::WaitForEndOfObjectPoolResponse);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::WaitForEndOfObjectPoolResponse:
-        // 		{
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Failed);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Get End of Object Pool Response Timeout");
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::Connected:
-        // 		{
-        // 			// Check for timeouts
-        // 			if (SystemTiming::time_expired_ms(lastVTStatusTimestamp_ms, VT_STATUS_TIMEOUT_MS))
-        // 			{
-        // 				set_state(StateMachineState::Disconnected);
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Error, "[VT]: Status Timeout");
-        // 			}
-        // 			update_auxiliary_input_status();
-        // 		}
-        // 		break;
-
-        // 		case StateMachineState::Failed:
-        // 		{
-        // 			constexpr std::uint32_t VT_STATE_MACHINE_RETRY_TIMEOUT_MS = 5000;
-        // 			sendWorkingSetMaintenance = false;
-        // 			sendAuxiliaryMaintenance = false;
-
-        // 			// Retry connecting after a while
-        // 			if (SystemTiming::time_expired_ms(stateMachineTimestamp_ms, VT_STATE_MACHINE_RETRY_TIMEOUT_MS))
-        // 			{
-        // 				CANStackLogger::CAN_stack_log(CANStackLogger::LoggingLevel::Info, "[VT]: Resetting Failed VT Connection");
-        // 				set_state(StateMachineState::Disconnected);
-        // 			}
-        // 		}
-        // 		break;
-
-        // 		default:
-        // 		{
-        // 		}
-        // 		break;
-        // 	}
-        // }
-        // else
-        // {
-        // 	set_state(StateMachineState::Disconnected);
-        // }
-
-        // if ((sendWorkingSetMaintenance) &&
-        //     (SystemTiming::time_expired_ms(lastWorkingSetMaintenanceTimestamp_ms, WORKING_SET_MAINTENANCE_TIMEOUT_MS)))
-        // {
-        // 	txFlags.set_flag(static_cast<std::uint32_t>(TransmitFlags::SendWorkingSetMaintenance));
-        // }
-        // if ((sendAuxiliaryMaintenance) &&
-        //     (!ourAuxiliaryInputs.empty()) &&
-        //     (SystemTiming::time_expired_ms(lastAuxiliaryMaintenanceTimestamp_ms, AUXILIARY_MAINTENANCE_TIMEOUT_MS)))
-        // {
-        // 	/// @todo We should make sure that when we disconnect/reconnect atleast 500ms has passed since the last auxiliary maintenance message
-        // 	txFlags.set_flag(static_cast<std::uint32_t>(TransmitFlags::SendAuxiliaryMaintenance));
-        // }
-        // txFlags.process_all_flags();
-
-        // if (state == previousStateMachineState)
-        // {
-        // 	firstTimeInState = false;
-        // }
+        self.state_machine.update(network_manager);
     }
 
     pub fn process_can_message(&mut self, message: &CanMessage) -> bool {
@@ -1252,8 +833,10 @@ impl VirtualTerminalClient {
                         VTFunction::VTStatusMessage => {
                             self.last_vtstatus_timestamp_ms = TimeDriver::time_elapsed();
                             self.active_working_set_master_address = message.get_u8_at(1).into();
-                            self.active_working_set_data_mask_object_id = message.get_u16_at(2).into();
-                            self.active_working_set_soft_key_mask_object_id = message.get_u16_at(4).into();
+                            self.active_working_set_data_mask_object_id =
+                                message.get_u16_at(2).into();
+                            self.active_working_set_soft_key_mask_object_id =
+                                message.get_u16_at(4).into();
                             self.busy_codes_bitfield = message.get_u8_at(6);
                             self.current_command_function_code = message.get_u8_at(7);
                         }
@@ -1577,7 +1160,7 @@ impl VirtualTerminalClient {
     }
 }
 
-impl Drop for VirtualTerminalClient {
+impl Drop for VirtualTerminalClient<'_> {
     fn drop(&mut self) {
         self.terminate();
     }
