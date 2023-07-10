@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::virtual_terminal_client::VTVersion;
+
 use super::*;
 
 #[derive(Debug)]
@@ -7,6 +9,7 @@ pub struct ObjectPool {
     objects: Vec<Object>,
     colour_map: [u8; 256],
     colour_palette: [Colour; 256],
+    supported_vt_version: VTVersion,
 }
 
 impl ObjectPool {
@@ -21,6 +24,7 @@ impl ObjectPool {
             objects: Vec::new(),
             colour_map,
             colour_palette: Colour::COLOUR_PALETTE,
+            supported_vt_version: VTVersion::default(),
         }
     }
 

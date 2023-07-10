@@ -7,9 +7,8 @@ pub struct InternalControlFunction {
 }
 
 impl InternalControlFunction {
-    pub fn new(desired_name: Name, preferred_address: Address) -> Option<InternalControlFunction> {
-        if let Some(state_machine) = AddressClaimStateMachine::new(desired_name, preferred_address)
-        {
+    pub fn new(name: Name, preferred_address: Address) -> Option<InternalControlFunction> {
+        if let Some(state_machine) = AddressClaimStateMachine::new(name, preferred_address) {
             Some(InternalControlFunction { state_machine })
         } else {
             None

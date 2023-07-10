@@ -94,9 +94,6 @@ impl<'a> CanNetworkManager<'a> {
         #[cfg(feature = "log_all_can_read")]
         log::debug!("Read: {}", &message);
 
-        // log::debug!("Global: {}", message.is_address_global());
-        // log::debug!("For us: {}", self.is_address_internaly_claimed(message.destination_address()));
-
         // Only listen to global messages and messages ment for us.
         if !message.is_address_global()
             && !self.is_address_internaly_claimed(message.destination_address())
@@ -107,12 +104,6 @@ impl<'a> CanNetworkManager<'a> {
         // Log only CAN traffic ment for us.
         #[cfg(feature = "log_can_read")]
         log::debug!("Read: {}", &message);
-
-        // Limit the size of the message queue, by removing the oldest messages.
-        // In Rust, using the event queue is prefered over using callbacks.
-        while self.received_can_message_queue.len() > MAX_RECEIVED_CAN_MESSAGE_QUEUE_SIZE {
-            self.received_can_message_queue.pop_front();
-        }
 
         // Have we handled the message ourselves.
         let mut handled = false;
@@ -140,6 +131,12 @@ impl<'a> CanNetworkManager<'a> {
                 );
             }
             _ => {}
+        }
+
+        // Limit the size of the message queue, by removing the oldest messages.
+        // In Rust, using the event queue is prefered over using callbacks.
+        while self.received_can_message_queue.len() > MAX_RECEIVED_CAN_MESSAGE_QUEUE_SIZE {
+            self.received_can_message_queue.pop_front();
         }
 
         // If we could not handle the message, store it in the buffer.
@@ -216,6 +213,12 @@ impl<'a> CanNetworkManager<'a> {
             .map(|(_, address)| address)
             .collect()
     }
+    pub fn all_external_addresses(&self) -> Vec<Address> {
+        self.external_control_functions()
+            .into_iter()
+            .map(|(_, address)| address)
+            .collect()
+    }
 
     fn update_control_functions_on_the_network(
         &mut self,
@@ -236,6 +239,13 @@ impl<'a> CanNetworkManager<'a> {
         self.control_functions_on_the_network
             .iter()
             .filter(|(_, (is_external, _))| !is_external)
+            .map(|(name, (_, address))| (*name, *address))
+            .collect()
+    }
+    pub fn external_control_functions(&self) -> Vec<(Name, Address)> {
+        self.control_functions_on_the_network
+            .iter()
+            .filter(|(_, (is_external, _))| is_external)
             .map(|(name, (_, address))| (*name, *address))
             .collect()
     }

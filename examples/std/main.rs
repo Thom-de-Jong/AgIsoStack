@@ -2,7 +2,7 @@ use std::{sync::mpsc::*, thread, time::Duration};
 
 use agisostack::{
     control_function::*, hardware_integration::*, name::*, virtual_terminal_client::*, Address,
-    CanFrame, CanNetworkManager,
+    CanFrame, CanNetworkManager, ObjectPool,
 };
 
 const ALARM_SOFT_KEY: u16 = 5000; //0x1388
@@ -31,7 +31,6 @@ fn main() {
 
     // For example; Do all of our GUI in the main thread.
     loop {
-        // log::info!("Time: {:?}", TimeDriver::time_elapsed());
         thread::sleep(Duration::from_secs(1));
     }
 }
@@ -42,11 +41,11 @@ fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     while can_driver.is_valid() {
         if let Some(frame) = can_driver.read() {
-            // log::debug!("Read: {}", frame);
+            // log::debug!("Read <-: {}", frame);
             let _ = tx.send(frame);
         }
         if let Ok(frame) = rx.try_recv() {
-            // log::debug!("Send: {}", frame);
+            // log::debug!("Send ->: {}", frame);
             let _ = can_driver.write(&frame);
         }
     }
@@ -83,16 +82,17 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     // Build the name and specify the address we want to claim.
     let test_device_name = name_builder.build();
-    let test_device_address = Address(0x1C);
+    let test_device_address = Address(0x80);
 
     // Read iop file and check if we read it.
-    let mut test_pool: Vec<u8> = Vec::new();
+    let mut iop_data: Vec<u8> = Vec::new();
     if let Ok(data) = std::fs::read("VT3TestPool.iop") {
-        test_pool.extend(data);
+        iop_data.extend(data);
         log::info!("Loaded object pool from VT3TestPool.iop")
     } else {
         log::error!("Failed to load object pool from VT3TestPool.iop")
     }
+    let mut test_pool: ObjectPool = ObjectPool::from_iop(iop_data);
 
     // Create the Name filer used to find a Virtual Terminal on the network.
     let filter_virtual_terminal = NameFilter::FunctionCode(FunctionCode::VirtualTerminal);
@@ -101,7 +101,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // TODO: Replace .unwrap()
     let test_internal_ecu =
         InternalControlFunction::new(test_device_name, test_device_address).unwrap();
-    let test_partner_vt = PartneredControlFunction::new(0, &vt_name_filters);
+    let test_partner_vt = PartneredControlFunction::new(&vt_name_filters);
 
     // Create the channel used to send VTKeyEvents from the callback to this task.
     // event_tx and event_rx have to outlive test_virtual_terminal_client, so we define them first.
@@ -113,7 +113,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
 
     // Set the Object pool to be used by our VTC.
     // A VTC can use multiple Object pools, we store our pool at the first pool index (0).
-    test_virtual_terminal_client.set_object_pool(0, VTVersion::Version3, &test_pool);
+    test_virtual_terminal_client.set_object_pool(0, test_pool);
 
     // Bind callbacks to VTC events.
     // These callbacks will provide us with event driven notifications of button presses from the stack.

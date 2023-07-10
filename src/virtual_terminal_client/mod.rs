@@ -33,14 +33,33 @@ pub enum SelectInputObjectOptions {
 
 /// The different VT versions that a client or server might support
 #[repr(u8)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum VTVersion {
-    Version2OrOlder,   //< Client or server supports VT version 2 or lower
-    Version3,          //< Client or server supports all of VT version 3
-    Version4,          //< Client or server supports all of VT version 4
-    Version5,          //< Client or server supports all of VT version 5
-    Version6,          //< Client or server supports all of VT version 6
-    ReservedOrUnknown, //< Reserved value, not to be used
+    Version2OrOlder = 2,        //< Client or server supports VT version 2 or lower
+    Version3 = 3,               //< Client or server supports all of VT version 3
+    Version4 = 4,               //< Client or server supports all of VT version 4
+    Version5 = 5,               //< Client or server supports all of VT version 5
+    Version6 = 6,               //< Client or server supports all of VT version 6
+    ReservedOrUnknown = 0xFF,   //< Reserved value, not to be used
+}
+
+impl Default for VTVersion {
+    fn default() -> Self {
+        Self::ReservedOrUnknown
+    }
+}
+
+impl From<u8> for VTVersion {
+    fn from(value: u8) -> Self {
+        match value {
+            0..=2 => Self::Version2OrOlder,
+            3 => Self::Version3,
+            4 => Self::Version4,
+            5 => Self::Version5,
+            6 => Self::Version6,
+            _ => Self::ReservedOrUnknown,
+        }
+    }
 }
 
 /// Enumerates the different line directions that can be used when changing an endpoint of an object

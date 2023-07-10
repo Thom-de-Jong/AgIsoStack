@@ -90,9 +90,6 @@ impl CanDriverTrait for PeakCanDriver {
     }
 
     fn write(&mut self, frame: &CanFrame) -> Result<(), ()> {
-        #[cfg(feature = "log_can_write")]
-        log::debug!("send: {}", &frame);
-
         let socket = match self.socket() {
             Some(socket) => socket,
             None => return Err(()),
@@ -105,6 +102,12 @@ impl CanDriverTrait for PeakCanDriver {
         } else {
             Ok(())
         }
+    }
+}
+
+impl Drop for PeakCanDriver {
+    fn drop(&mut self) {
+        self.close();
     }
 }
 

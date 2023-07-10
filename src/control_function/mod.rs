@@ -1,34 +1,66 @@
 use crate::{
     name::{Name, NameFilter},
-    Address,
+    Address, CanNetworkManager,
 };
 
 mod address_claim_state_machine;
 use address_claim_state_machine::AddressClaimStateMachine;
 
 mod internal_control_function;
+use alloc::vec::Vec;
 pub use internal_control_function::InternalControlFunction;
 
 mod external_control_function;
 pub use external_control_function::ExternalControlFunction;
 
-pub struct PartneredControlFunction(ExternalControlFunction);
+pub struct PartneredControlFunction {
+    // external_control_function: ExternalControlFunction,
+    connected_name: Option<Name>,
+    claimed_address: Option<Address>,
+
+    name_filters: Vec<NameFilter>,
+}
 
 impl PartneredControlFunction {
-    pub fn new(_: u8, _filters: &[NameFilter]) -> PartneredControlFunction {
-        PartneredControlFunction(ExternalControlFunction {
-            address: Address::GLOBAL,
-            name: Name::default(),
-            object_changed_address_since_last_update: false,
-        })
-    }
-
-    pub fn address(&self) -> Address {
-        self.0.address
+    pub fn new(filters: &[NameFilter]) -> PartneredControlFunction {
+        PartneredControlFunction {
+            // external_control_function: ExternalControlFunction {
+            //     address: Address::GLOBAL,
+            //     name: Name::default(),
+            //     object_changed_address_since_last_update: false,
+            // },
+            connected_name: None,
+            claimed_address: None,
+            name_filters: filters.to_vec(),
+        }
     }
 
     pub fn name(&self) -> Name {
-        self.0.name
+        self.connected_name.unwrap_or_default()
+    }
+    pub fn address(&self) -> Address {
+        self.claimed_address.unwrap_or_default()
+    }
+    pub fn is_address_valid(&self) -> bool {
+        self.claimed_address.is_some()
+    }
+
+    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+        // Process received messages and update internal state.
+        // network_manager.handle_message(|message| self.state_machine.process_can_message(message));
+
+        // Do stuff based on the current internal state.
+        // self.state_machine.update(network_manager);
+
+        self.connected_name = None;
+        self.claimed_address = None;
+
+        for (name, address) in network_manager.external_control_functions() {
+            if self.name_filters.iter().all(|filter|{ filter.check_name_matches_filter(name) }) {
+                self.connected_name = Some(name);
+                self.claimed_address = Some(address);
+            }
+        }
     }
 }
 
@@ -75,14 +107,6 @@ impl ControlFunction {
         let address: Address = self.address();
         (address != Address::GLOBAL) && (address != Address::NULL)
     }
-
-    // pub fn can_port(&self) -> u8 {
-    //     match self {
-    //         ControlFunction::Internal(cf) => cf.can_port(),
-    //         ControlFunction::External(cf) => cf.can_port(),
-    //         ControlFunction::Partnered(cf) => cf.0.can_port(),
-    //     }
-    // }
 
     pub fn name(&self) -> Name {
         match self {
