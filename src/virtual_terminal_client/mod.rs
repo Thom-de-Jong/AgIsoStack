@@ -2,10 +2,21 @@ mod events;
 pub use events::*;
 
 mod virtual_terminal_client_state_machine;
-use virtual_terminal_client_state_machine::VirtualTerminalClientStateMachine;
+// use virtual_terminal_client_state_machine::VirtualTerminalClientStateMachine;
 
 mod virtual_terminal_client;
 pub use virtual_terminal_client::*;
+
+
+/// The types of acknowldegement that can be sent in the Ack PGN
+#[repr(u8)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+enum AcknowledgementType {
+	Positive = 0,		//< "ACK" Indicates that the request was completed
+	Negative = 1,		//< "NACK" Indicates the request was not completed or we do not support the PGN
+	AccessDenied = 2,	//< Signals to the requestor that their CF is not allowed to request this PGN
+	CannotRespond = 3,	//< Signals to the requestor that we are unable to accept the request for some reason
+}
 
 /// Enumerates the states that can be sent with a hide/show object command
 #[repr(u8)]

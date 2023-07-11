@@ -1,4 +1,4 @@
-use crate::{name::Name, Address, CanNetworkManager};
+use crate::{name::Name, Address, CanNetworkManager, hardware_integration::CanDriverTrait};
 
 use super::AddressClaimStateMachine;
 
@@ -31,7 +31,7 @@ impl InternalControlFunction {
         self.state_machine.disable();
     }
 
-    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+    pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
         // Process received messages and update internal state.
         network_manager.handle_message(|message| self.state_machine.process_can_message(message));
 

@@ -10,7 +10,7 @@ use crate::{
     CanFrame,
     CanMessage,
     CanPriority,
-    ParameterGroupNumber,
+    ParameterGroupNumber, hardware_integration::CanDriverTrait, extended_transport_protocol_manager::ExtendedTransportProtocolManager,
 };
 
 // const MAX_CAN_FRAMES_SEND_PER_PROCESS: u8 = 255;
@@ -18,16 +18,18 @@ const MAX_RECEIVED_CAN_MESSAGE_QUEUE_SIZE: usize = 32;
 
 // const GLOBAL_PARAMETER_GROUP_NUMBER_CALLBACK_LIST_SIZE: usize = 4;
 
-pub struct CanNetworkManager<'a> {
+pub struct CanNetworkManager<T: CanDriverTrait> {
+    can_driver: T,
+
     // tp_manager: TransportProtocolManager, //< Instance of the transport protocol manager
-    // etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
+    etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
     // fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
 
     // can_message_processors: Vec<RefCell<&'a dyn CanMessageProcessor>>,
     control_functions_on_the_network: BTreeMap<Name, (bool, Address)>,
 
     // send_can_frame_buffer: Vec<CanFrame>,
-    send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
+    // send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
 
     // can_message_to_send: Option<CanMessage<'a>>,
     received_can_message_queue: VecDeque<CanMessage>,
@@ -35,16 +37,18 @@ pub struct CanNetworkManager<'a> {
     // global_parameter_group_number_callbacks: BTreeMap<u16, &'a dyn Fn(&CanMessage)>,
 }
 
-impl<'a> CanNetworkManager<'a> {
-    pub fn new() -> CanNetworkManager<'a> {
+impl<T: CanDriverTrait> CanNetworkManager<T> {
+    pub fn new(can_driver: T) -> CanNetworkManager<T> {
         CanNetworkManager {
+            can_driver,
             // tp_manager: TransportProtocolManager::new(),
+            etp_manager: ExtendedTransportProtocolManager::new(),
 
             // can_message_processors: Vec::new(),
             control_functions_on_the_network: BTreeMap::new(),
 
             // send_can_frame_buffer: Vec::new(),
-            send_can_frame_callback: None,
+            // send_can_frame_callback: None,
 
             received_can_message_queue: VecDeque::new(),
             // received_can_message_queue_iter_index: usize::default(),
@@ -75,7 +79,7 @@ impl<'a> CanNetworkManager<'a> {
                 // self.tp_manager.send(&mut self.can_driver, pdu, time);
             }
             1786..=117_440_505 => {
-                // self.etp_manager.send(&mut self.can_driver, pdu, time);
+                self.etp_manager.send(message);
             }
             _ => {
                 log::error!("Can message to long; > 117.440.505 bytes!");
@@ -83,10 +87,11 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn send_can_frame(&self, frame: CanFrame) {
-        if let Some(callback) = self.send_can_frame_callback {
-            callback(frame);
-        }
+    pub fn send_can_frame(&mut self, frame: CanFrame) {
+        // if let Some(callback) = self.send_can_frame_callback {
+        //     callback(frame);
+        // }
+        let _ = self.can_driver.write(&frame);
     }
 
     pub fn process_can_message(&mut self, message: CanMessage) {
@@ -105,18 +110,18 @@ impl<'a> CanNetworkManager<'a> {
         #[cfg(feature = "log_can_read")]
         log::debug!("Read: {}", &message);
 
-        // Have we handled the message ourselves.
+        // Have we handled the message.
         let mut handled = false;
 
         // Keep track of all the external control functions on the network.
-        // And respond to any request for claimed addresses.
+        // Respond to any request for claimed addresses.
+        // And pass messages to the TP and ETP managers.
         match message.pgn() {
             ParameterGroupNumber::ParameterGroupNumberRequest => {
                 if ParameterGroupNumber::AddressClaim == message.get_pgn_at(0) {
                     // We received a request for all claimed addresses.
-                    // The network manager will handle this on behave of the internal control functions.
-                    let val = self.internal_control_functions();
-                    for (name, address) in val {
+                    // The network manager will handle this on behalve of the internal control functions.
+                    for (name, address) in self.internal_control_functions() {
                         self.send_address_claim(name, address)
                     }
 
@@ -129,6 +134,24 @@ impl<'a> CanNetworkManager<'a> {
                     true,
                     message.source_address(),
                 );
+
+                handled = true;
+            }
+            // ParameterGroupNumber::TransportProtocolConnectionManagement |
+            // ParameterGroupNumber::TransportProtocolDataTransfer => {
+                // if let Some(message) = self.tp_manager.process_can_message(message) {
+                //     self.received_can_message_queue.push_back(message);
+                // }
+
+                // handled = true;
+            // }
+            ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement |
+            ParameterGroupNumber::ExtendedTransportProtocolDataTransfer => {
+                if let Some(message) = self.etp_manager.process_can_message(message) {
+                    self.received_can_message_queue.push_back(message);
+                }
+
+                handled = true;
             }
             _ => {}
         }
@@ -145,21 +168,17 @@ impl<'a> CanNetworkManager<'a> {
         }
     }
 
-    pub fn process_can_frame(&mut self, frame: CanFrame) {
-        // Check if TP or ETP message
-        // Give it to the handlers
-
-        let message: Option<CanMessage> = Some(frame.into());
-
-        // If a message is complete
-        if let Some(message) = message {
-            self.process_can_message(message);
+    pub fn update(&mut self) {
+        // Receive an process CanFrames
+        while let Some(frame) = self.can_driver.read() {
+            // log::debug!("Read <-: {}", frame);
+            self.process_can_message(frame.into());
         }
     }
 
-    pub fn send_can_frame_callback(&mut self, callback: &'a dyn Fn(CanFrame)) {
-        self.send_can_frame_callback = Some(callback);
-    }
+    // pub fn send_can_frame_callback(&mut self, callback: &'a dyn Fn(CanFrame)) {
+    //     self.send_can_frame_callback = Some(callback);
+    // }
 
     /// Iterates over all messages, removing handled messages using the predicate.
     ///
@@ -245,12 +264,12 @@ impl<'a> CanNetworkManager<'a> {
     pub fn external_control_functions(&self) -> Vec<(Name, Address)> {
         self.control_functions_on_the_network
             .iter()
-            .filter(|(_, (is_external, _))| is_external)
+            .filter(|(_, (is_external, _))| *is_external)
             .map(|(name, (_, address))| (*name, *address))
             .collect()
     }
 
-    pub fn send_request_to_claim(&mut self) {
+    pub fn send_request_address_claim(&mut self) {
         let data: [u8; 3] = ParameterGroupNumber::AddressClaim.into();
 
         let message = CanMessage::new(

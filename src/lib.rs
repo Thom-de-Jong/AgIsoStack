@@ -7,8 +7,6 @@ extern crate alloc;
 
 // Export can data types
 mod can_id;
-use core::ops::Range;
-
 pub use can_id::{ExtendedId, Id, StandardId};
 mod can_frame;
 pub use can_frame::CanFrame;
@@ -32,10 +30,10 @@ pub use object_pool::ObjectPool;
 pub mod virtual_terminal_client;
 pub use virtual_terminal_client::VirtualTerminalClient;
 
-// mod transport_protocol_manager;
-// mod extended_transport_protocol_manager;
 mod can_network_manager;
 pub use can_network_manager::CanNetworkManager;
+// mod transport_protocol_manager;
+mod extended_transport_protocol_manager;
 
 /// Defines all the CAN frame priorities that can be encoded in a frame ID
 #[repr(u8)]

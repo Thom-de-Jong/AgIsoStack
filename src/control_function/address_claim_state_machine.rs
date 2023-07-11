@@ -1,7 +1,7 @@
 use core::time::Duration;
 
 use crate::{
-    hardware_integration::{TimeDriver, TimeDriverTrait},
+    hardware_integration::{TimeDriver, TimeDriverTrait, CanDriverTrait},
     name::Name,
     Address, CanMessage, CanNetworkManager, ParameterGroupNumber,
 };
@@ -111,7 +111,7 @@ impl AddressClaimStateMachine {
     }
 
     /// Update based on the current state
-    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+    pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
         if !self.is_enabled {
             self.current_state = State::None;
         }
@@ -127,7 +127,7 @@ impl AddressClaimStateMachine {
                 }
             }
             State::SendRequestForClaim => {
-                network_manager.send_request_to_claim();
+                network_manager.send_request_address_claim();
                 self.timestamp = TimeDriver::time_elapsed();
                 self.current_state = State::WaitForRequestContentionPeriod;
             }
@@ -209,9 +209,9 @@ impl AddressClaimStateMachine {
             .unwrap_or_default()
     }
 
-    pub fn send_address_claim(
+    pub fn send_address_claim<T: CanDriverTrait>(
         &mut self,
-        network_manager: &mut CanNetworkManager,
+        network_manager: &mut CanNetworkManager<T>,
         name: Name,
         address: Address,
     ) {

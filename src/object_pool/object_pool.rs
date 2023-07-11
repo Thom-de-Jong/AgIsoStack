@@ -1,3 +1,5 @@
+use core::cell::Cell;
+
 use alloc::vec::Vec;
 
 use crate::virtual_terminal_client::VTVersion;
@@ -10,6 +12,8 @@ pub struct ObjectPool {
     colour_map: [u8; 256],
     colour_palette: [Colour; 256],
     supported_vt_version: VTVersion,
+
+    size_cache: Cell<Option<usize>>,
 }
 
 impl ObjectPool {
@@ -25,7 +29,16 @@ impl ObjectPool {
             colour_map,
             colour_palette: Colour::COLOUR_PALETTE,
             supported_vt_version: VTVersion::default(),
+
+            size_cache: Cell::new(None),
         }
+    }
+
+    pub fn size(&self) -> usize {
+        if self.size_cache.get().is_none() {
+            self.size_cache.set(Some(self.as_iop().len()));
+        }
+        self.size_cache.get().unwrap_or_default()
     }
 
     pub fn from_iop<I>(data: I) -> Self

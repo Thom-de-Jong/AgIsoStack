@@ -1,6 +1,6 @@
 use crate::{
     name::{Name, NameFilter},
-    Address, CanNetworkManager,
+    Address, CanNetworkManager, hardware_integration::CanDriverTrait,
 };
 
 mod address_claim_state_machine;
@@ -45,7 +45,7 @@ impl PartneredControlFunction {
         self.claimed_address.is_some()
     }
 
-    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+    pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
         // Process received messages and update internal state.
         // network_manager.handle_message(|message| self.state_machine.process_can_message(message));
 
@@ -99,7 +99,7 @@ impl ControlFunction {
         match self {
             ControlFunction::Internal(cf) => cf.address(),
             ControlFunction::External(cf) => cf.address(),
-            ControlFunction::Partnered(cf) => cf.0.address(),
+            ControlFunction::Partnered(cf) => cf.address(),
         }
     }
 
@@ -112,7 +112,7 @@ impl ControlFunction {
         match self {
             ControlFunction::Internal(cf) => cf.name(),
             ControlFunction::External(cf) => cf.name(),
-            ControlFunction::Partnered(cf) => cf.0.name(),
+            ControlFunction::Partnered(cf) => cf.name(),
         }
     }
 }

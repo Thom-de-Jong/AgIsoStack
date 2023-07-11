@@ -27,6 +27,20 @@ impl CanMessage {
             data: data.into(),
         }
     }
+    pub fn new_from_pdu2(
+        priority: CanPriority,
+        pgn: ParameterGroupNumber,
+        source: Address,
+        data: &[u8],
+    ) -> Self {
+        CanMessage {
+            priority,
+            pgn,
+            source,
+            destination: Address::GLOBAL,
+            data: data.into(),
+        }
+    }
     pub fn new_from_id(id: Id, data: &[u8]) -> Self {
         let pgn: ParameterGroupNumber = ((id.as_raw() >> 8) & 0x03FF00).into();
         CanMessage {

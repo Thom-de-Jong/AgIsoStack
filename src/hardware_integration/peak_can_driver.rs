@@ -1,3 +1,4 @@
+
 use super::CanDriverTrait;
 use crate::{CanFrame, ExtendedId, Id, StandardId};
 
@@ -83,7 +84,7 @@ impl CanDriverTrait for PeakCanDriver {
             Err(PcanError::QrcvEmpty) => None,
             Err(e) => {
                 self.log_can_error("Unable to read CAN frame", Some(e));
-                self.close();
+                // self.close();
                 None
             }
         }
@@ -97,7 +98,7 @@ impl CanDriverTrait for PeakCanDriver {
 
         if let Err(e) = socket.send(frame.into()) {
             self.log_can_error("Unable to write CAN frame", Some(e));
-            self.close();
+            // self.close();
             Err(())
         } else {
             Ok(())

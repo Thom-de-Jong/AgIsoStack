@@ -18,16 +18,8 @@ fn main() {
         .format_timestamp_millis()
         .init();
 
-    // Create the channel used to send CanFrames from the Canbus thread to the Isobus thread.
-    let (canbus_tx, canbus_rx): (Sender<CanFrame>, Receiver<CanFrame>) = channel();
-    // Create the channel used to send CanFrames from the Isobus thread to the Canbus thread.
-    let (isobus_tx, isobus_rx): (Sender<CanFrame>, Receiver<CanFrame>) = channel();
-
-    // Start the Canbus thread.
-    thread::spawn(move || canbus_task(canbus_tx, isobus_rx));
-
     // Start the Isobus thread.
-    thread::spawn(move || isobus_task(isobus_tx, canbus_rx));
+    thread::spawn(|| isobus_task());
 
     // For example; Do all of our GUI in the main thread.
     loop {
@@ -35,34 +27,29 @@ fn main() {
     }
 }
 
-fn canbus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
+fn isobus_task() {
+    // // Create the channel used to send CanFrames to the CanDriver.
+    // // This is needed because we use a callback to send can frames instead of passing the driver.
+    // let (tx, rx): (Sender<CanFrame>, Receiver<CanFrame>) = channel();
+
+    // Create a instance of a CanDriver
     let mut can_driver = CanDriver::new();
     can_driver.open();
 
-    while can_driver.is_valid() {
-        if let Some(frame) = can_driver.read() {
-            // log::debug!("Read <-: {}", frame);
-            let _ = tx.send(frame);
-        }
-        if let Ok(frame) = rx.try_recv() {
-            // log::debug!("Send ->: {}", frame);
-            let _ = can_driver.write(&frame);
-        }
-    }
+    // TODO: Hack to clear the p-can hardware buffer
+    thread::sleep(Duration::from_millis(500));
+    can_driver.close();
+    can_driver.open();
 
-    log::error!("Canbus task exited! Driver no longer valid.");
-}
-
-fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // Create a new mannager for the CAN network we are connecting to.
-    let mut network_manager: CanNetworkManager = CanNetworkManager::new();
+    let mut network_manager = CanNetworkManager::new(can_driver);
 
-    // Bind a callback to the network manager to be called when we send a can frame.
-    // This is the "glue" between the network manager and the CAN Driver.
-    let callback = |f| {
-        let _ = tx.send(f);
-    };
-    network_manager.send_can_frame_callback(&callback);
+    // // Bind a callback to the network manager to be called when we send a can frame.
+    // // This is the "glue" between the network manager and the CAN Driver.
+    // let callback = |f| {
+    //     let _ = tx.send(f);
+    // };
+    // network_manager.send_can_frame_callback(&callback);
 
     // Create a new name builder.
     let mut name_builder = Name::builder();
@@ -92,7 +79,7 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     } else {
         log::error!("Failed to load object pool from VT3TestPool.iop")
     }
-    let mut test_pool: ObjectPool = ObjectPool::from_iop(iop_data);
+    let test_pool: ObjectPool = ObjectPool::from_iop(iop_data);
 
     // Create the Name filer used to find a Virtual Terminal on the network.
     let filter_virtual_terminal = NameFilter::FunctionCode(FunctionCode::VirtualTerminal);
@@ -135,11 +122,13 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
     // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
     let mut example_number_output: u32 = 214748364;
 
+
     loop {
-        // Receive a CanFrame without blocking
-        if let Ok(frame) = rx.try_recv() {
-            network_manager.process_can_frame(frame);
-        }
+        // Update the NetworkManager.
+        network_manager.update();
+
+        // Update the VirtualTerminalClient.
+        test_virtual_terminal_client.update(&mut network_manager);
 
         // Receive VTKeyEvents without blocking using callback results
         if let Ok(event) = event_rx.try_recv() {
@@ -174,9 +163,6 @@ fn isobus_task(tx: Sender<CanFrame>, rx: Receiver<CanFrame>) {
                 _ => {}
             };
         }
-
-        // Update the VirtualTerminalClient
-        test_virtual_terminal_client.update(&mut network_manager);
     }
 
     // TestVirtualTerminalClient->terminate();
