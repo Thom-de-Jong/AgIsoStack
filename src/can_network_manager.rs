@@ -147,7 +147,7 @@ impl<T: CanDriverTrait> CanNetworkManager<T> {
             // }
             ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement |
             ParameterGroupNumber::ExtendedTransportProtocolDataTransfer => {
-                if let Some(message) = self.etp_manager.process_can_message(message) {
+                if let Some(message) = self.etp_manager.process_can_message(&message) {
                     self.received_can_message_queue.push_back(message);
                 }
 

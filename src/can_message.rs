@@ -89,19 +89,6 @@ impl CanMessage {
         }
     }
 
-    // pub fn pgn(&self) -> ParameterGroupNumber {
-    //     ParameterGroupNumber::new(
-    //         (self.extended_data_page() as u32 & 0b1) << 17
-    //             | (self.data_page() as u32 & 0b1) << 16
-    //             | (self.pdu_format() as u32) << 8
-    //             | if self.is_pdu1() {
-    //                 0
-    //             } else {
-    //                 self.pdu_specific()
-    //             } as u32,
-    //     )
-    // }
-
     pub fn priority(&self) -> CanPriority {
         self.priority
     }
@@ -125,9 +112,9 @@ impl CanMessage {
         self.pgn.is_pdu1() && self.is_address_specific(Address::NULL)
     }
 
-    // pub fn builder() -> CanMessageBuilder<'a> {
-
-    // }
+    pub fn builder() -> CanMessageBuilder {
+        CanMessageBuilder::new()
+    }
 
     pub fn get_bool_at(&self, index: usize, bit: usize) -> bool {
         match self
@@ -161,6 +148,19 @@ impl CanMessage {
             None => {
                 log::error!("Index out of range!");
                 u16::default()
+            }
+        }
+    }
+    pub fn get_u24_at(&self, index: usize) -> u32 {
+        match self.data.get(index..=index + 2).map(|value| {
+            let mut data: [u8; 3] = [0; 3];
+            data.copy_from_slice(value);
+            u32::from_le_bytes([data[0], data[1], data[2], 0])
+        }) {
+            Some(val) => val,
+            None => {
+                log::error!("Index out of range!");
+                u32::default()
             }
         }
     }
@@ -212,64 +212,59 @@ impl core::fmt::Display for CanMessage {
     }
 }
 
-// pub struct CanMessageBuilder<'a> {
-//     priority: u8,
-//     extended_data_page: bool,
-//     data_page: bool,
-//     pdu_format: u8,
-//     pdu_specific: u8,
-//     destination_address: Address,
-//     source_address: Address,
-//     data: &'a [u8],
-// }
-
-// impl CanMessageBuilder<'_> {
-//     pub fn build(&self) -> CanMessage {
-//         CanMessage {
-//             priority: todo!(),
-//             pgn: todo!(),
-//             source_address: todo!(),
-//             destination_address: todo!(),
-//             data: todo!(),
-//         }
-//     }
-
-//     pub fn priority(mut self, value: u8) -> Self {
-//         self.priority = value;
-//         self
-//     }
-//     pub fn pgn(mut self, pgn: ParameterGroupNumber) -> Self {
-//         self.extended_data_page = pgn;
-//         ParameterGroupNumber::new(
-//             (self.extended_data_page() as u32 & 0b1) << 17
-//                 | (self.data_page() as u32 & 0b1) << 16
-//                 | (self.pdu_format() as u32) << 8
-//                 | if self.is_pdu1() {
-//                     0
-//                 } else {
-//                     self.pdu_specific()
-//                 } as u32,
-//         );
-
-//         self
-//     }
-
-//     pub fn source_address(mut self, value: Address) -> Self {
-//         self.source_address = value;
-//         self
-//     }
-//     pub fn destination_address(mut self, value: Address) -> Self {
-//         self.destination_address = value;
-//         self
-//     }
-// }
-
 impl From<CanFrame> for CanMessage {
     fn from(value: CanFrame) -> Self {
         CanMessage::new_from_id(value.id(), &value.data()[..value.dlc()])
     }
 }
 
-// pub trait CanMessageProcessor {
-//     fn process_can_message(&mut self, message: CanMessage) -> Option<CanMessage>;
-// }
+
+#[derive(Default)]
+pub struct CanMessageBuilder {
+    priority: CanPriority,
+    pgn: ParameterGroupNumber,
+    source: Address,
+    destination: Address,
+    data: Vec<u8>,
+}
+
+impl CanMessageBuilder {
+    pub fn new() -> CanMessageBuilder {
+        CanMessageBuilder::default()
+    }
+
+    pub fn build(&self) -> CanMessage {
+        CanMessage {
+            priority: self.priority,
+            pgn: self.pgn,
+            source: self.source,
+            destination: self.destination,
+            data: self.data.clone(),
+        }
+    }
+
+    pub fn priority(&mut self, value: CanPriority) -> &mut Self {
+        self.priority = value;
+        self
+    }
+    pub fn pgn(&mut self, value: ParameterGroupNumber) -> &mut Self {
+        self.pgn = value;
+        self
+    }
+
+    pub fn source_address(&mut self, value: Address) -> &mut Self {
+        self.source = value;
+        self
+    }
+
+    pub fn destination_address(&mut self, value: Address) -> &mut Self {
+        self.destination = value;
+        self
+    }
+
+    pub fn data(&mut self, value: &[u8]) -> &mut Self {
+        self.data.copy_from_slice(value);
+        self
+    }
+}
+
