@@ -19,7 +19,7 @@ const MAX_NUMBER_OF_PACKETS_TO_SEND: u8 = 32;
 pub struct ExtendedTransportProtocolManager {
     current_state: State,
     message_backlog: VecDeque<CanMessage>,
-    message_to_send: Option<CanMessage>,
+    // message_to_send: Option<CanMessage>,
     next_timeout: Duration,
 
     receiving_message_builder: CanMessageBuilder,
@@ -56,31 +56,29 @@ impl ExtendedTransportProtocolManager {
                     self.open_connection(message);
                 }
             }
-            State::SendRequestToSend => {
-                if let Some(message) = &self.message_to_send {
-                    let mut data: [u8; 8] = [0xFF; 8];
-                    data[0] = EtpCmControlByte::RequestToSend as u8;
-                    data[1..=4].copy_from_slice(&(message.len() as u32).to_le_bytes());
-                    data[5..=7].copy_from_slice(&message.pgn().as_bytes());
+            State::SendRequestToSend(message_to_send) => {
+                let mut data: [u8; 8] = [0xFF; 8];
+                data[0] = EtpCmControlByte::RequestToSend as u8;
+                data[1..=4].copy_from_slice(&(message_to_send.len() as u32).to_le_bytes());
+                data[5..=7].copy_from_slice(&message_to_send.pgn().as_bytes());
     
-                    network_manager.send_can_message(CanMessage::new(
-                        CanPriority::PriorityLowest7,
-                        ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement,
-                        message.source_address(),
-                        message.destination_address(),
-                        &data,
-                    ));
+                network_manager.send_can_message(CanMessage::new(
+                    CanPriority::PriorityLowest7,
+                    ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement,
+                    message_to_send.source_address(),
+                    message_to_send.destination_address(),
+                    &data,
+                ));
     
-                    self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T3;
-                    self.set_state(State::WaitForClearToSend);
-                }
+                self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T3;
+                self.set_state(State::WaitForClearToSend(message_to_send));
             }
-            State::WaitForClearToSend => {
+            State::WaitForClearToSend(_) => {
                 if TimeDriver::time_elapsed() > self.next_timeout {
 					log::error!("[ETP]: Wait For Clear To Send Timeout");
-					self.abort_connection(network_manager);
+                    self.set_state(State::SendConnectionAbort(AbortReason::Timeout));
 				}
-            },
+            }
             State::SendClearToSend => {
                 let message = self.receiving_message_builder.build();
 
@@ -100,46 +98,59 @@ impl ExtendedTransportProtocolManager {
 
                 self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T2;
                 self.set_state(State::WaitForDataPacketOffset);
-            },
+            }
             State::WaitForDataPacketOffset => {
                 if TimeDriver::time_elapsed() > self.next_timeout {
 					log::error!("[ETP]: Wait For Data Packet Offset Timeout");
-					self.abort_connection(network_manager);
+                    self.set_state(State::SendConnectionAbort(AbortReason::Timeout));
 				}
-            },
-            State::SendDataPacketOffset => {
-
-            },
+            }
+            State::SendDataPacketOffset(message_to_send, number_of_packets_to_send, next_packet_number_to_send) => {
+                let mut data: [u8; 8] = [0xFF; 8];
+                data[0] = EtpCmControlByte::DataPacketOffset as u8;
+                data[1] = number_of_packets_to_send;
+                data[2..=4].copy_from_slice(&(next_packet_number_to_send-1 as u32).to_le_bytes());
+                data[5..=7].copy_from_slice(&message_to_send.pgn().as_bytes());
+    
+                network_manager.send_can_message(CanMessage::new(
+                    CanPriority::PriorityLowest7,
+                    ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement,
+                    message_to_send.source_address(),
+                    message_to_send.destination_address(),
+                    &data,
+                ));
+    
+                self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T1;
+                self.set_state(State::SendDataTransfer(message_to_send, 1, number_of_packets_to_send));
+            }
             State::WaitForDataTransfer => {
                 if TimeDriver::time_elapsed() > self.next_timeout {
 					log::error!("[ETP]: Wait For Data Timeout");
-					self.abort_connection(network_manager);
+                    self.set_state(State::SendConnectionAbort(AbortReason::Timeout));
 				}
-            },
-            State::SendData => {
-                // let data: [u8; 8] = pdu.data::<8>();
-                // let nr_of_packets = data[1];
-                // let next_packet = u32::from_le_bytes([data[2], data[3], data[4], 0x00]);
+            }
+            State::SendDataTransfer(message_to_send, sequence_number, number_of_packets_to_send) => {
+                let mut data: [u8; 8] = [0xFF; 8];
+                data[0] = sequence_number;
+
+                // TODO: use real data
     
-                // if nr_of_packets == 0 {
-                //     self.timeout_time = time + ETP_TIMEOUT_T4;
-                // } else {
-                //     self.send_pdu_data(
-                //         can,
-                //         next_packet,
-                //         nr_of_packets,
-                //         pdu.source_address(),
-                //         claimed_address,
-                //     );
-                //     self.timeout_time = time + ETP_TIMEOUT_T3;
-                // }
-            },
-            State::WaitForEndOfMessageAcknowledgement => {
-                if TimeDriver::time_elapsed() > self.next_timeout {
-					log::error!("[ETP]: Wait For End Of Message Acknowledgement Timeout");
-					self.abort_connection(network_manager);
-				}
-            },
+                network_manager.send_can_message(CanMessage::new(
+                    CanPriority::PriorityLowest7,
+                    ParameterGroupNumber::ExtendedTransportProtocolDataTransfer,
+                    message_to_send.source_address(),
+                    message_to_send.destination_address(),
+                    &data,
+                ));
+    
+                if sequence_number < number_of_packets_to_send {
+                    self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T1;
+                    self.set_state(State::SendDataTransfer(message_to_send, sequence_number + 1, number_of_packets_to_send));
+                } else {
+                    self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T3;
+                    self.set_state(State::WaitForClearToSend(message_to_send));
+                }
+            }
             State::SendEndOfMessageAcknowledgement => {
                 let message = self.receiving_message_builder.build();
 
@@ -160,103 +171,14 @@ impl ExtendedTransportProtocolManager {
                 self.close_connection();
 
                 result = Some(self.receiving_message_builder.data(&self.receiving_data_buffer).build())
-            },
+            }
+            
+            State::SendConnectionAbort(abort_reason) => {
+                self.abort_connection(abort_reason, network_manager);
+            }
         }
 
         result
-
-
-
-        // Statements after this need to process a PDU.
-        // let pdu = match pdu {
-        //     Some(pdu) => pdu,
-        //     None => return None,
-        // };
-
-        // // Received a request to send meant for us.
-        // if pdu.is_etp_request_to_send() && pdu.is_address_specific(claimed_address) {
-        //     // When idling, accept the request to send and send a clear to send message.
-        //     if self.state() == State::Idle {
-        //         //         let data: [u8; 8] = pdu.data::<8>();
-
-        //         //         let nr_of_bytes: u16 = u16::from_le_bytes([data[1], data[2]]);
-        //         //         self.receive_buffer = vec![0xFF; nr_of_bytes as usize];
-        //         //         self.receive_nr_of_packets = u8::min(data[3], data[4]);
-        //         //         let packet_pgn: PGN = PGN::from_le_bytes([data[5], data[6], data[7]]);
-
-        //         //         can.write(PDU::new_tp_clear_to_send(
-        //         //             self.receive_nr_of_packets,
-        //         //             1,
-        //         //             packet_pgn,
-        //         //             pdu.source_address(),
-        //         //             claimed_address,
-        //         //         ).into());
-
-        //         //         self.receive_pgn = Some(packet_pgn);
-        //         //         self.timeout_time = time + TP_TIMEOUT_T2;
-        //         //     } else {
-        //         //         // If we are already in a connection, abort the new connection.
-        //         //         can.write(PDU::new_tp_connection_abort(TpAbortReasons::AlreadyConnected, pdu.pgn(), pdu.source_address(), claimed_address).into());
-        //     }
-        // }
-
-        // // Received a clear to send meant for us.
-        // if pdu.is_etp_clear_to_send() && pdu.is_address_specific(claimed_address) {
-        //     if self.state() == State::Sending {
-        //         let data: [u8; 8] = pdu.data::<8>();
-        //         let nr_of_packets = data[1];
-        //         let next_packet = u32::from_le_bytes([data[2], data[3], data[4], 0x00]);
-
-        //         if nr_of_packets == 0 {
-        //             self.next_timeout = time + ETP_TIMEOUT_T4;
-        //         } else {
-        //             self.send_pdu_data(
-        //                 can,
-        //                 next_packet,
-        //                 nr_of_packets,
-        //                 pdu.source_address(),
-        //                 claimed_address,
-        //             );
-        //             self.next_timeout = time + ETP_TIMEOUT_T3;
-        //         }
-        //     }
-        // }
-
-        // // Received an end of message meant for us.
-        // if pdu.is_etp_end_of_message_acknowledge() && pdu.is_address_specific(claimed_address) {
-        //     if self.state() == State::Sending {
-        //         let finished_pdu = self.message_to_send.take();
-        //         self.close_connection();
-
-        //         // If we have PDUs in the backlog, start a new connection.
-        //         if let Some(pdu) = self.backlog.pop_front() {
-        //             self.open_connection(can, pdu, time);
-        //         }
-
-        //         return finished_pdu;
-        //     }
-        // }
-
-        // // Received an data transfer meant for us.
-        // if pdu.is_etp_data_transfer() && pdu.is_address_specific(claimed_address) {
-        //     if self.state() == State::Receiving {
-        //         let data: [u8; 8] = pdu.data::<8>();
-        //         let packet_nr = data[0];
-
-        //         for i in 0..7 {
-        //             self.receive_buffer[((packet_nr-1)*7+i) as usize] = data[(i+1) as usize];
-        //         }
-
-        //         self.timeout_time = time + TP_TIMEOUT_T1;
-
-        //         if self.receive_nr_of_packets == packet_nr {
-        //             if let Some(pgn) = self.receive_pgn {
-        //                 can.write(PDU::new_tp_end_of_message_acknowledge(self.receive_buffer.len() as u16, self.receive_nr_of_packets, pgn, pdu.source_address(), claimed_address).into());
-        //             }
-        //             self.close_connection();
-        //         }
-        //     }
-        // }
     }
 
     pub fn process_can_message(&mut self, message: &CanMessage) -> Option<CanMessage> {
@@ -275,23 +197,33 @@ impl ExtendedTransportProtocolManager {
                                     .destination_address(message.destination_address());
 
                                 self.set_state(State::SendClearToSend)
+                            } else {
+
+                            }
+                        }
+                        EtpCmControlByte::ClearToSend => {
+                            if let State::WaitForClearToSend(message_to_send) = self.current_state {
+                                if message_to_send.pgn() != message.get_pgn_at(5) {
+                                    self.set_state(State::SendConnectionAbort(AbortReason::BadClearToSendPgn));
+                                    return None;
+                                }
+
+                                let number_of_packets_to_send = message.get_u8_at(1);
+                                let next_packet_number_to_send = message.get_u24_at(2);
+
+                                if number_of_packets_to_send == 0 {
+                                    self.next_timeout = TimeDriver::time_elapsed() + ETP_TIMEOUT_T4;
+                                    return None;
+                                }
+
+                                self.set_state(State::SendDataPacketOffset(
+                                    message_to_send,
+                                    number_of_packets_to_send,
+                                    next_packet_number_to_send,
+                                ))
                             }
                             None
                         }
-                        EtpCmControlByte::ClearToSend => {
-                            if State::WaitForClearToSend == self.current_state {
-                                self.receiving_number_of_bytes = message.get_u32_at(1);
-                                let pgn = message.get_pgn_at(5);
-
-                                self.receiving_message_builder
-                                    .pgn(pgn)
-                                    .source_address(message.source_address())
-                                    .destination_address(message.destination_address());
-
-                                self.set_state(State::SendData)
-                            }
-                            None
-                        },
                         EtpCmControlByte::DataPacketOffset => {
                             if State::WaitForDataPacketOffset == self.current_state {
                                 // self.receiving_number_of_bytes = message.get_u32_at(1);
@@ -309,13 +241,28 @@ impl ExtendedTransportProtocolManager {
                                 self.set_state(State::WaitForDataTransfer)
                             }
                             None
-                        },
+                        }
                         EtpCmControlByte::EndOfMessageAcknowledgement => {
+                            if let State::WaitForClearToSend(message_to_send) = self.current_state {
+                                if message_to_send.pgn() != message.get_pgn_at(5) {
+                                    self.set_state(State::SendConnectionAbort(AbortReason::Other));
+                                    return None;
+                                }
+
+                                let number_of_bytes_transferred = message.get_u32_at(1);
+
+                                if number_of_bytes_transferred != message_to_send.len() as u32 {
+                                    self.set_state(State::SendConnectionAbort(AbortReason::Other));
+                                    return None;
+                                }
+
+                                self.close_connection();
+                            }
                             None
-                        },
+                        }
                         EtpCmControlByte::ConnectionAbort => {
                             None
-                        },
+                        }
                     }
                 } else {
                     None
@@ -345,13 +292,12 @@ impl ExtendedTransportProtocolManager {
 
 
     fn open_connection(&mut self, message: CanMessage) {
-        self.message_to_send = Some(message);
-        self.set_state(State::SendRequestToSend);
+        self.set_state(State::SendRequestToSend(message));
     }
 
     fn close_connection(&mut self) {
         self.next_timeout = Duration::MAX;
-        self.message_to_send = None;
+        // self.message_to_send = None;
         // self.receive_buffer.clear();
         // self.receive_pgn = None;
         // self.receive_nr_of_packets = 0;
@@ -445,16 +391,15 @@ impl Default for ExtendedTransportProtocolManager {
 #[derive(Debug, PartialEq)]
 enum State {
     WaitingForRequestToSend,
-    SendRequestToSend,
-	WaitForClearToSend,
+    SendRequestToSend(CanMessage),
+	WaitForClearToSend(CanMessage),
     SendClearToSend,
     WaitForDataPacketOffset,
-    SendDataPacketOffset,
+    SendDataPacketOffset(CanMessage, u8, u32),
     WaitForDataTransfer,
-    SendData,
-    WaitForEndOfMessageAcknowledgement,
+    SendDataTransfer(CanMessage, u8, u8),
     SendEndOfMessageAcknowledgement,
-    SendConnectionAbort,
+    SendConnectionAbort(AbortReason),
 }
 
 impl Default for State {
@@ -505,7 +450,7 @@ enum AbortReason {
     BadDataPacketOffsetPgn = 0x0A,              //< Unexpected EDPO PGN (PGN in EDPO is bad)
     BadDataPacketOffsetNumberOfPackets = 0x0B,  //< EDPO number of packets is greater than CTS
     BadDataPacketOffsetOffset = 0x0C,           //< Bad EDPO offset
-    //  = 0x0E,                                    //< Unexpected ECTS PGN (PGN in ECTS is bad)
+    BadClearToSendPgn = 0x0E,                   //< Unexpected ECTS PGN (PGN in ECTS is bad)
     //  = 0x0F,                                    //< ECTS requested packets exceeds message size
     Other = 0xFA,                               //< Any other reason
 }
