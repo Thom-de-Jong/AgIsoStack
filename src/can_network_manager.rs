@@ -10,7 +10,8 @@ use crate::{
     CanFrame,
     CanMessage,
     CanPriority,
-    ParameterGroupNumber, hardware_integration::CanDriverTrait, extended_transport_protocol_manager::ExtendedTransportProtocolManager,
+    ParameterGroupNumber, hardware_integration::CanDriverTrait,
+    control_function::{InternalControlFunction, External, ExternalControlFunction},
 };
 
 // const MAX_CAN_FRAMES_SEND_PER_PROCESS: u8 = 255;
@@ -21,12 +22,11 @@ const MAX_RECEIVED_CAN_MESSAGE_QUEUE_SIZE: usize = 32;
 pub struct CanNetworkManager<T: CanDriverTrait> {
     can_driver: T,
 
-    // tp_manager: TransportProtocolManager, //< Instance of the transport protocol manager
-    etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
-    // fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
-
     // can_message_processors: Vec<RefCell<&'a dyn CanMessageProcessor>>,
-    control_functions_on_the_network: BTreeMap<Name, (bool, Address)>,
+    // control_functions_on_the_network: BTreeMap<Name, (bool, Address)>,
+
+    external_control_functions: BTreeMap<usize, ExternalControlFunction>,
+    internal_control_functions: BTreeMap<usize, InternalControlFunction>,
 
     // send_can_frame_buffer: Vec<CanFrame>,
     // send_can_frame_callback: Option<&'a dyn Fn(CanFrame)>,
@@ -41,8 +41,6 @@ impl<T: CanDriverTrait> CanNetworkManager<T> {
     pub fn new(can_driver: T) -> CanNetworkManager<T> {
         CanNetworkManager {
             can_driver,
-            // tp_manager: TransportProtocolManager::new(),
-            etp_manager: ExtendedTransportProtocolManager::new(),
 
             // can_message_processors: Vec::new(),
             control_functions_on_the_network: BTreeMap::new(),
@@ -261,12 +259,8 @@ impl<T: CanDriverTrait> CanNetworkManager<T> {
             .map(|(name, (_, address))| (*name, *address))
             .collect()
     }
-    pub fn external_control_functions(&self) -> Vec<(Name, Address)> {
-        self.control_functions_on_the_network
-            .iter()
-            .filter(|(_, (is_external, _))| *is_external)
-            .map(|(name, (_, address))| (*name, *address))
-            .collect()
+    pub fn external_control_functions(&self) -> Vec<ExternalControlFunction> {
+        self.external_control_functions.iter().map(|(_, ecf)| *ecf).collect()
     }
 
     pub fn send_request_address_claim(&mut self) {

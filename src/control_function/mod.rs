@@ -1,3 +1,6 @@
+
+use alloc::vec::Vec;
+
 use crate::{
     name::{Name, NameFilter},
     Address, CanNetworkManager, hardware_integration::CanDriverTrait,
@@ -7,42 +10,39 @@ mod address_claim_state_machine;
 use address_claim_state_machine::AddressClaimStateMachine;
 
 mod internal_control_function;
-use alloc::vec::Vec;
 pub use internal_control_function::InternalControlFunction;
-
 mod external_control_function;
 pub use external_control_function::ExternalControlFunction;
 
 pub struct PartneredControlFunction {
-    // external_control_function: ExternalControlFunction,
-    connected_name: Option<Name>,
-    claimed_address: Option<Address>,
-
+    external_control_function_cache: Option<ExternalControlFunction>,
     name_filters: Vec<NameFilter>,
 }
 
 impl PartneredControlFunction {
     pub fn new(filters: &[NameFilter]) -> PartneredControlFunction {
         PartneredControlFunction {
-            // external_control_function: ExternalControlFunction {
-            //     address: Address::GLOBAL,
-            //     name: Name::default(),
-            //     object_changed_address_since_last_update: false,
-            // },
-            connected_name: None,
-            claimed_address: None,
+            external_control_function_cache: None,
             name_filters: filters.to_vec(),
         }
     }
 
-    pub fn name(&self) -> Name {
-        self.connected_name.unwrap_or_default()
+    pub fn name(&self) -> Option<Name> {
+        if let Some(ecf) = self.external_control_function_cache {
+            Some(ecf.name())
+        } else {
+            None
+        }
     }
-    pub fn address(&self) -> Address {
-        self.claimed_address.unwrap_or_default()
+    pub fn address(&self) -> Option<Address> {
+        if let Some(ecf) = self.external_control_function_cache {
+            Some(ecf.address())
+        } else {
+            None
+        }
     }
-    pub fn is_address_valid(&self) -> bool {
-        self.claimed_address.is_some()
+    pub fn is_partnered(&self) -> bool {
+        self.external_control_function_cache.is_some()
     }
 
     pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
@@ -52,14 +52,25 @@ impl PartneredControlFunction {
         // Do stuff based on the current internal state.
         // self.state_machine.update(network_manager);
 
-        self.connected_name = None;
-        self.claimed_address = None;
+        self.external_control_function_cache = None;
 
-        for (name, address) in network_manager.external_control_functions() {
-            if self.name_filters.iter().all(|filter|{ filter.check_name_matches_filter(name) }) {
-                self.connected_name = Some(name);
-                self.claimed_address = Some(address);
+        for ecf in network_manager.external_control_functions() {
+            if self.name_filters.iter().all(|filter|{ filter.check_name_matches_filter(ecf.name()) }) {
+                self.external_control_function_cache = Some(ecf);
             }
+        }
+
+        self.external_control_function_cache = if network_manager.external_control_functions()
+            .iter()
+            .any(|&ecf|{
+                if self.name_filters.iter().all(|filter| filter.check_name_matches_filter(ecf.name())) {
+                    Some(ecf)
+                }
+            })
+        {
+            Some(ecf)
+        } else {
+            None
         }
     }
 }

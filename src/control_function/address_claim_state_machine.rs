@@ -28,8 +28,8 @@ impl Default for State {
 }
 
 pub struct AddressClaimStateMachine {
-    name: Name,                   //< The ISO NAME to claim as
     current_state: State,         //< The address claim state machine state
+    name: Name,                   //< The ISO NAME to claim as
     timestamp: Duration,          //< A timestamp used to find timeouts
     random_claim_delay: Duration, //< The random delay as required by the ISO11783 standard
     preferred_address: Address,   //< The address we'd prefer to claim as (we may not get it)
@@ -48,8 +48,8 @@ impl AddressClaimStateMachine {
         let random_claim_delay = Duration::from_micros(rng.u64(..=255) * 600); // Defined by ISO11783-5
 
         Some(Self {
-            name: desired_name,
             current_state: State::default(),
+            name: desired_name,
             timestamp,
             random_claim_delay,
             preferred_address,

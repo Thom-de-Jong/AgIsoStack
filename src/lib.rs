@@ -14,8 +14,9 @@ pub use can_frame::CanFrame;
 // Export low level Isobus types
 mod can_message;
 pub use can_message::CanMessage;
+mod name;
+pub use name::{Name, NameBuilder, NameFilter};
 pub mod control_function;
-pub mod name;
 mod parameter_group_numbers;
 pub use parameter_group_numbers::ParameterGroupNumber;
 
@@ -32,8 +33,8 @@ pub use virtual_terminal_client::VirtualTerminalClient;
 
 mod can_network_manager;
 pub use can_network_manager::CanNetworkManager;
-// mod transport_protocol_manager;
-mod extended_transport_protocol_manager;
+
+mod protocol_managers;
 
 /// Defines all the CAN frame priorities that can be encoded in a frame ID
 #[repr(u8)]

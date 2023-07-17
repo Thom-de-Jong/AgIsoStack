@@ -1,15 +1,22 @@
-use crate::{name::Name, Address, CanNetworkManager, hardware_integration::CanDriverTrait};
+use crate::{name::Name, Address, CanNetworkManager, hardware_integration::CanDriverTrait, protocol_managers::ExtendedTransportProtocolManager};
 
 use super::AddressClaimStateMachine;
 
 pub struct InternalControlFunction {
     state_machine: AddressClaimStateMachine,
+
+    // tp_manager: TransportProtocolManager, //< Instance of the transport protocol manager
+    etp_manager: ExtendedTransportProtocolManager, //< Instance of the extended transport protocol manager
+    // fpp_manager: FastPacketProtocolManager, //< Instance of the fast packet protocol manager
 }
 
 impl InternalControlFunction {
     pub fn new(name: Name, preferred_address: Address) -> Option<InternalControlFunction> {
         if let Some(state_machine) = AddressClaimStateMachine::new(name, preferred_address) {
-            Some(InternalControlFunction { state_machine })
+            Some(InternalControlFunction{
+                state_machine,
+                etp_manager: ExtendedTransportProtocolManager::new(),
+            })
         } else {
             None
         }
