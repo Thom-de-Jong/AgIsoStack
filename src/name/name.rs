@@ -14,7 +14,7 @@ use super::{DeviceClass, FunctionCode, IndustryGroup};
 //     ArbitraryAddressCapable, //< Defines if this ECU supports address arbitration.
 // }
 
-#[derive(Copy, Clone, Default, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Copy, Clone, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Name {
     value: u64,
 }

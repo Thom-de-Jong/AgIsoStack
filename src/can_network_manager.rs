@@ -11,7 +11,7 @@ use crate::{
     CanMessage,
     CanPriority,
     ParameterGroupNumber, hardware_integration::CanDriverTrait,
-    control_function::{InternalControlFunction, External, ExternalControlFunction},
+    control_function::{InternalControlFunction, ExternalControlFunction},
 };
 
 // const MAX_CAN_FRAMES_SEND_PER_PROCESS: u8 = 255;
