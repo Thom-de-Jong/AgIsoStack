@@ -85,10 +85,13 @@ fn isobus_task() {
     let filter_virtual_terminal = NameFilter::FunctionCode(FunctionCode::VirtualTerminal);
     let vt_name_filters = vec![filter_virtual_terminal];
 
-    // TODO: Replace .unwrap()
-    let test_internal_ecu =
-        InternalControlFunction::new(test_device_name, test_device_address).unwrap();
+    // Create the Control Functions used by the Virtual Terminal
+    let test_internal_ecu = InternalControlFunction::new(test_device_name, test_device_address);
     let test_partner_vt = PartneredControlFunction::new(&vt_name_filters);
+
+    // Bind the Control Functions to the used Network Manager
+    let test_internal_ecu_handle =  network_manager.bind_internal_control_function(test_internal_ecu);
+    let test_partner_vt_handle =  network_manager.bind_partnered_control_function(test_partner_vt);
 
     // Create the channel used to send VTKeyEvents from the callback to this task.
     // event_tx and event_rx have to outlive test_virtual_terminal_client, so we define them first.
@@ -96,7 +99,7 @@ fn isobus_task() {
 
     // Create a new Virtual Terminal Client (VTC), the main struct used to comunicate with a Virtual Terminal.
     let mut test_virtual_terminal_client =
-        VirtualTerminalClient::new(test_partner_vt, test_internal_ecu);
+        VirtualTerminalClient::new(test_partner_vt_handle, test_internal_ecu_handle);
 
     // Set the Object pool to be used by our VTC.
     // A VTC can use multiple Object pools, we store our pool at the first pool index (0).
@@ -117,7 +120,7 @@ fn isobus_task() {
         .add_vt_button_event_listener(&vt_button_event_listener_callback);
 
     // Initialize the VTC.
-    test_virtual_terminal_client.initialize();
+    test_virtual_terminal_client.initialize(&mut network_manager);
 
     // In the object pool the output number has an offset of -214748364 so we use this to represent 0.
     let mut example_number_output: u32 = 214748364;

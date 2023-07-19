@@ -47,7 +47,7 @@ impl ExtendedTransportProtocolManager {
         }
     }
 
-    pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) -> Option<CanMessage> {
+    pub fn update(&mut self, network_manager: &mut CanNetworkManager) -> Option<CanMessage> {
         let mut result = None;
 
         match self.current_state {
@@ -304,7 +304,7 @@ impl ExtendedTransportProtocolManager {
         self.set_state(State::WaitingForRequestToSend);
     }
 
-    fn abort_connection<T: CanDriverTrait>(&mut self, abort_reason: AbortReason, network_manager: &mut CanNetworkManager<T>) {
+    fn abort_connection(&mut self, abort_reason: AbortReason, network_manager: &mut CanNetworkManager) {
         let message = if self.message_to_send.is_some() {
             self.message_to_send.unwrap()
         } else {

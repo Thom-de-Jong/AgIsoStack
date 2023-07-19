@@ -18,8 +18,8 @@ const WORKING_SET_MAINTENANCE_TIMEOUT: Duration = Duration::from_millis(1000);  
 const AUXILIARY_MAINTENANCE_TIMEOUT: Duration = Duration::from_millis(100);     //< The delay between auxiliary maintenance messages
 
 pub struct VirtualTerminalClient<'a> {
-	partnered_control_function: PartneredControlFunction, //< The partner control function this client will send to
-	internal_control_function: InternalControlFunction, //< The internal control function the client uses to send from
+	partnered_control_function: ControlFunctionHandle, //< The handle to the partnered control function this client will send to
+	internal_control_function: ControlFunctionHandle, //< The handle to the internal control function the client uses to send from
 
 	object_pools: BTreeMap<usize, ObjectPool>,
 
@@ -68,8 +68,8 @@ pub struct VirtualTerminalClient<'a> {
 
 impl<'a> VirtualTerminalClient<'a> {
 	pub fn new(
-		partner: PartneredControlFunction,
-		client: InternalControlFunction,
+		partner: ControlFunctionHandle,
+		client: ControlFunctionHandle,
 	) -> VirtualTerminalClient<'a> {
 		VirtualTerminalClient {
 			partnered_control_function: partner,
@@ -119,7 +119,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		}
 	}
 
-	pub fn initialize(&mut self) {
+	pub fn initialize(&mut self, network_manager: &mut CanNetworkManager) {
 		// // Bind the callbacks to CAN messages used by the Virtual Termainal Client
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::VirtualTerminalToECU), process_rx_message, this);
 		// self.partnerControlFunction->add_parameter_group_number_callback(static_cast<std::uint32_t>(CANLibParameterGroupNumber::Acknowledge), process_rx_message, this);
@@ -132,13 +132,14 @@ impl<'a> VirtualTerminalClient<'a> {
 		// 	languageCommandInterface.initialize();
 		// }
 
-		self.internal_control_function.initialize();
-		// self.partnered_control_function.initialize();
+		if let Some(icf) = network_manager.internal_control_function_mut(self.internal_control_function) {
+			icf.initialize()
+		}
 
 		self.is_initialized = true;
 	}
 
-	pub fn terminate(&mut self) {
+	pub fn terminate(&mut self, network_manager: &mut CanNetworkManager) {
 		if !self.is_initialized { return; }
 
 		// if ((StateMachineState::Connected == state) && (send_delete_object_pool())) {
@@ -154,17 +155,19 @@ impl<'a> VirtualTerminalClient<'a> {
 		// shouldTerminate = true;
 		self.set_state(State::Disconnected);
 
-		self.internal_control_function.terminate();
+		if let Some(icf) = network_manager.internal_control_function_mut(self.internal_control_function) {
+			icf.terminate()
+		}
 		// self.partnered_control_function.terminate()
 
 		self.is_initialized = false;
 		log::info!("[VT]: VT Client connection has been terminated.");
 	}
 
-	pub fn restart_communication(&mut self) {
+	pub fn restart_communication(&mut self, network_manager: &mut CanNetworkManager) {
 		log::info!("[VT]: VT Client connection restart requested. Client will now terminate and reinitialize.");
-		self.terminate();
-		self.initialize();
+		self.terminate(network_manager);
+		self.initialize(network_manager);
 	}
 
 
@@ -202,13 +205,21 @@ impl<'a> VirtualTerminalClient<'a> {
 	}
 
 
-	pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
-		// Firt update the connected control functions.
-		self.internal_control_function.update(network_manager);
-		self.partnered_control_function.update(network_manager);
+	pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+		// Firt update the internal control function.
+		if let Some(icf) = network_manager.internal_control_function_mut(self.internal_control_function) {
+			icf.update(network_manager);
+			for message in icf.received_can_message_queue.oldest_ordered() {
+				self.process_can_message(message);
+			}
+		}
+		// if let Some(pcf) = network_manager.partnered_control_function_mut(self.partnered_control_function) {
+		// 	pcf.update(network_manager)
+		// }
+		// self.partnered_control_function.update(network_manager);
 
 		// Process received messages and update internal state.
-		network_manager.handle_message(|message| self.process_can_message(message));
+		// network_manager.handle_message(|message| self.process_can_message(message));
 
 		// Limit the size of the event queue, by removing the oldest events.
 		// In Rust, using the event queue is prefered over using callbacks.
@@ -1192,7 +1203,7 @@ impl<'a> VirtualTerminalClient<'a> {
 	}
 
 
-	fn send_working_set_master_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_working_set_master_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = 1; // TODO; Remove hard coded Number of members in working set ISO11783-7
 
@@ -1205,7 +1216,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		network_manager.send_can_message(message);
 	}
 	
-	fn send_request_language_command<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_request_language_command(&mut self, network_manager: &mut CanNetworkManager) {
 		let data: [u8; 3] = ParameterGroupNumber::LanguageCommand.into();
 
 		let message = CanMessage::new(
@@ -1218,7 +1229,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		network_manager.send_can_message(message);
 	}
 
-	fn send_get_memory_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_get_memory_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = VTFunction::GetMemoryMessage as u8;
 		data[2..=5].copy_from_slice(&self.object_pools
@@ -1232,7 +1243,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		self.send_to_virtual_terminal(network_manager, &data);
 	}
 
-	fn send_get_number_of_softkeys_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_get_number_of_softkeys_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = VTFunction::GetNumberOfSoftKeysMessage as u8;
 		
@@ -1240,7 +1251,7 @@ impl<'a> VirtualTerminalClient<'a> {
 
 	}
 
-	fn send_get_text_font_data_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_get_text_font_data_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = VTFunction::GetTextFontDataMessage as u8;
 		
@@ -1248,7 +1259,7 @@ impl<'a> VirtualTerminalClient<'a> {
 
 	}
 
-	fn send_get_hardware_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_get_hardware_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = VTFunction::GetHardwareMessage as u8;
 		
@@ -1259,7 +1270,7 @@ impl<'a> VirtualTerminalClient<'a> {
 
 
 
-	fn send_working_set_maintenance_message<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+	fn send_working_set_maintenance_message(&mut self, network_manager: &mut CanNetworkManager) {
 		let mut data: [u8; 8] = [0xFF; 8];
 		data[0] = VTFunction::WorkingSetMaintenanceMessage as u8;
 		data[1] = if self.connected_vt_version <= VTVersion::Version2OrOlder {
@@ -1275,9 +1286,9 @@ impl<'a> VirtualTerminalClient<'a> {
 
 
 	
-	pub fn send_change_numeric_value<T: CanDriverTrait>(
+	pub fn send_change_numeric_value(
 		&mut self,
-		network_manager: &mut CanNetworkManager<T>,
+		network_manager: &mut CanNetworkManager,
 		object_id: u16,
 		value: u32,
 	) {
@@ -1295,7 +1306,7 @@ impl<'a> VirtualTerminalClient<'a> {
 		self.send_to_virtual_terminal(network_manager, &data);
 	}
 
-	pub fn send_to_virtual_terminal<T: CanDriverTrait>(&self, network_manager: &mut CanNetworkManager<T>, data: &[u8]) {
+	pub fn send_to_virtual_terminal(&self, network_manager: &mut CanNetworkManager, data: &[u8]) {
 		let message = CanMessage::new(
 			if self.connected_vt_version <= VTVersion::Version5 {
 				CanPriority::PriorityLowest7

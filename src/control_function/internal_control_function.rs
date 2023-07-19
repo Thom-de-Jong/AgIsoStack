@@ -1,35 +1,43 @@
+
+use heapless::HistoryBuffer;
+
 use crate::{
     name::Name, Address, CanNetworkManager, hardware_integration::CanDriverTrait,
-    protocol_managers::{ExtendedTransportProtocolManager, TransportProtocolManager},
+    protocol_managers::{ExtendedTransportProtocolManager, TransportProtocolManager}, ParameterGroupNumber, CanMessage,
 };
 
-use super::AddressClaimStateMachine;
+use super::{AddressClaimStateMachine, ControlFunctionHandle};
 
 pub struct InternalControlFunction {
     state_machine: AddressClaimStateMachine,
+    name: Name,
 
     tp_manager: TransportProtocolManager,           //< Instance of the transport protocol manager
     etp_manager: ExtendedTransportProtocolManager,  //< Instance of the extended transport protocol manager
+
+    pub received_can_message_queue: HistoryBuffer<CanMessage, 32>,
 }
 
 impl InternalControlFunction {
-    pub fn new(name: Name, address: Address) -> Option<InternalControlFunction> {
-        AddressClaimStateMachine::new(name, address)
-            .map(|state_machine|{
-                InternalControlFunction {
-                    state_machine,
-                    tp_manager: TransportProtocolManager::new(),
-                    etp_manager: ExtendedTransportProtocolManager::new(),
-                }
-            })
+    pub fn new(name: Name, address: Address) -> InternalControlFunction {
+        InternalControlFunction {
+            state_machine: AddressClaimStateMachine::new(name.into(), address),
+            name,
+            tp_manager: TransportProtocolManager::new(),
+            etp_manager: ExtendedTransportProtocolManager::new(),
+            received_can_message_queue: HistoryBuffer::new(),
+        }
     }
 
     pub fn name(&self) -> Name {
-        self.state_machine.name()
+        self.name
     }
 
     pub fn address(&self) -> Address {
         self.state_machine.claimed_address()
+    }
+    pub fn claim_address(&self, address: Address) {
+        self.state_machine.claim_address(address);
     }
 
     pub fn initialize(&mut self) {
@@ -40,11 +48,34 @@ impl InternalControlFunction {
         self.state_machine.disable();
     }
 
-    pub fn update<T: CanDriverTrait>(&mut self, network_manager: &mut CanNetworkManager<T>) {
+    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
         // Process received messages and update internal state.
-        network_manager.handle_message(|message| self.state_machine.process_can_message(message));
+        // network_manager.handle_message(|message| self.state_machine.process_can_message(message));
 
         // Do stuff based on the current internal state.
-        self.state_machine.update(network_manager);
+        self.state_machine.update(self, network_manager);
+    }
+
+    pub fn process_can_message(&mut self, message: CanMessage) {
+        // Log only CAN traffic ment for us.
+        #[cfg(feature = "log_can_read")]
+        log::debug!("Read <-: {}", message);
+
+        // Pass messages to the TP and ETP managers.
+        match message.pgn() {
+            // ParameterGroupNumber::TransportProtocolConnectionManagement |
+            // ParameterGroupNumber::TransportProtocolDataTransfer => {
+                // if let Some(message) = self.tp_manager.process_can_message(message) {
+                //     self.received_can_message_queue.write(message);
+                // }
+            // }
+            ParameterGroupNumber::ExtendedTransportProtocolConnectionManagement |
+            ParameterGroupNumber::ExtendedTransportProtocolDataTransfer => {
+                if let Some(message) = self.etp_manager.process_can_message(&message) {
+                    self.received_can_message_queue.write(message);
+                }
+            }
+            _ => {}
+        }
     }
 }
