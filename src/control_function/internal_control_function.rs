@@ -1,12 +1,15 @@
 
+use core::cell::RefCell;
+
+use alloc::rc::Rc;
 use heapless::HistoryBuffer;
 
 use crate::{
-    name::Name, Address, CanNetworkManager, hardware_integration::CanDriverTrait,
+    name::Name, Address, CanNetworkManager,
     protocol_managers::{ExtendedTransportProtocolManager, TransportProtocolManager}, ParameterGroupNumber, CanMessage,
 };
 
-use super::{AddressClaimStateMachine, ControlFunctionHandle};
+use super::{AddressClaimStateMachine, ControlFunction, ControlFunctionHandle};
 
 pub struct InternalControlFunction {
     state_machine: AddressClaimStateMachine,
@@ -19,14 +22,18 @@ pub struct InternalControlFunction {
 }
 
 impl InternalControlFunction {
-    pub fn new(name: Name, address: Address) -> InternalControlFunction {
-        InternalControlFunction {
-            state_machine: AddressClaimStateMachine::new(name.into(), address),
-            name,
-            tp_manager: TransportProtocolManager::new(),
-            etp_manager: ExtendedTransportProtocolManager::new(),
-            received_can_message_queue: HistoryBuffer::new(),
-        }
+    pub fn new(name: Name, address: Address) -> ControlFunctionHandle {
+        ControlFunctionHandle(
+            Rc::new_cyclic(|&handle| {
+                RefCell::new(ControlFunction::Internal(InternalControlFunction {
+                    state_machine: AddressClaimStateMachine::new(handle, address),
+                    name,
+                    tp_manager: TransportProtocolManager::new(),
+                    etp_manager: ExtendedTransportProtocolManager::new(),
+                    received_can_message_queue: HistoryBuffer::new(),
+                }))
+            })
+        )
     }
 
     pub fn name(&self) -> Name {

@@ -1,5 +1,7 @@
 
-use alloc::vec::Vec;
+use core::cell::RefCell;
+
+use alloc::{vec::Vec, rc::Rc};
 
 use crate::{
     name::{Name, NameFilter},
@@ -14,6 +16,9 @@ mod internal_control_function;
 pub use internal_control_function::InternalControlFunction;
 mod external_control_function;
 pub use external_control_function::ExternalControlFunction;
+
+mod handle;
+pub use handle::{ControlFunctionHandle, WeakControlFunctionHandle, InternalControlFunctionHandle};
 
 pub struct PartneredControlFunction {
     external_control_function_cache: Option<ExternalControlFunction>,
@@ -50,6 +55,7 @@ impl PartneredControlFunction {
 }
 
 
+#[derive(PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum ControlFunction {
     Internal(InternalControlFunction), //< The control function is part of our stack and can address claim.
     External(ExternalControlFunction), //< The control function is some other device on the bus.
@@ -90,15 +96,5 @@ impl ControlFunction {
 
     pub fn is_address_valid(&self) -> bool {
         self.address() < Address::NULL
-    }
-}
-
-
-#[derive(Copy, Clone, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct ControlFunctionHandle(Name);
-
-impl From<Name> for ControlFunctionHandle {
-    fn from(value: Name) -> Self {
-        ControlFunctionHandle(value)
     }
 }
