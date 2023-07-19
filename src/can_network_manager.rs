@@ -1,13 +1,12 @@
-use std::os::windows::prelude::HandleOrInvalid;
+use core::cell::RefCell;
 
 use alloc::{
     collections::{BTreeMap, VecDeque},
-    vec::Vec, boxed::Box,
+    vec::Vec, boxed::Box, rc::Rc,
 };
 
 use crate::{
     name::Name,
-    // transport_protocol_manager::TransportProtocolManager
     Address,
     CanFrame,
     CanMessage,
@@ -60,8 +59,8 @@ impl CanNetworkManager {
         }
     }
 
-    pub fn bind_internal_control_function(&self, internal_control_function: InternalControlFunction) -> ControlFunctionHandle {
-        let handle: ControlFunctionHandle = internal_control_function.name().into();
+    pub fn new_internal_control_function(&self, name: Name, preferred_address: Address) -> ControlFunctionHandle {
+        let handle: ControlFunctionHandle = InternalControlFunction::new(name, preferred_address);
         let _ = self.control_functions.insert(handle, ControlFunction::Internal(internal_control_function));
         handle
     }

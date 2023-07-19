@@ -1,4 +1,4 @@
-use core::time::Duration;
+use core::{time::Duration, borrow::BorrowMut};
 
 use crate::{
     hardware_integration::{TimeDriver, TimeDriverTrait, CanDriverTrait},
@@ -6,7 +6,7 @@ use crate::{
     Address, CanMessage, CanNetworkManager, ParameterGroupNumber,
 };
 
-use super::{ControlFunction, InternalControlFunction, ControlFunctionHandle};
+use super::{ControlFunction, InternalControlFunction, ControlFunctionHandle, WeakControlFunctionHandle, handle};
 
 /// Defines the state machine states for address claiming
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -30,18 +30,17 @@ impl Default for State {
 }
 
 pub struct AddressClaimStateMachine {
-    handle: ControlFunctionHandle,  //< A handle to the Internal Control Function this state machine belongs to
-    current_state: State,           //< The address claim state machine state
-    // name: Name,                  //< The ISO NAME to claim as
-    timestamp: Duration,            //< A timestamp used to find timeouts
-    random_claim_delay: Duration,   //< The random delay as required by the ISO11783 standard
-    preferred_address: Address,     //< The address we'd prefer to claim as (we may not get it)
-    claimed_address: Address,       //< A cached version of the actual address we claimed
-    is_enabled: bool,               //< Enable/disable state for this state machine
+    handle: WeakControlFunctionHandle,  //< A handle to the Internal Control Function this state machine belongs to
+    current_state: State,               //< The address claim state machine state
+    timestamp: Duration,                //< A timestamp used to find timeouts
+    random_claim_delay: Duration,       //< The random delay as required by the ISO11783 standard
+    preferred_address: Address,         //< The address we'd prefer to claim as (we may not get it)
+    claimed_address: Address,           //< A cached version of the actual address we claimed
+    is_enabled: bool,                   //< Enable/disable state for this state machine
 }
 
 impl AddressClaimStateMachine {
-    pub fn new(handle: ControlFunctionHandle, preferred_address: Address) -> Self {
+    pub fn new(_handle: WeakControlFunctionHandle, preferred_address: Address) -> Self {
         let timestamp = TimeDriver::time_elapsed();
         let mut rng = fastrand::Rng::with_seed(timestamp.as_millis() as u64);
         let random_claim_delay = Duration::from_micros(rng.u64(..=255) * 600); // Defined by ISO11783-5
@@ -57,10 +56,6 @@ impl AddressClaimStateMachine {
             is_enabled: false,
         }
     }
-
-    // pub fn name(&self) -> Name {
-    //     self.name
-    // }
 
     pub fn enable(&mut self) {
         self.is_enabled = true;
@@ -101,10 +96,10 @@ impl AddressClaimStateMachine {
                     // has been stolen if we're running this logic. But, you never know, someone could be
                     // spoofing us I guess, or we could be getting an echo? CAN Bridge from another channel?
                     // Seemed safest to just confirm.
-                    if name != self.name() {
+                    if name != self.name().unwrap_or_default() {
                         // Wait for things to shake out a bit, then claim a new address.
                         self.current_state = State::WaitForRequestContentionPeriod;
-                        log::warn!("[AC]: Internal control function {} must re-arbitrate its address because it was stolen by another ECU with NAME {name}.", self.name());
+                        log::warn!("[AC]: Internal control function {} must re-arbitrate its address because it was stolen by another ECU with NAME {name}.", self.name().unwrap_or_default());
                         handled = true;
                     }
                 }
@@ -115,10 +110,14 @@ impl AddressClaimStateMachine {
     }
 
     /// Update based on the current state
-    pub fn update(&mut self, control_function: &mut InternalControlFunction, network_manager: &mut CanNetworkManager) {
-        if !self.is_enabled {
+    pub fn update(&mut self, network_manager: &mut CanNetworkManager) {
+        let handle = self.handle.upgrade();
+        if !self.is_enabled || handle.is_none() {
             self.current_state = State::None;
+            return;
         }
+        // Handle is always Some()
+        let control_function = network_manager.control_function(handle);
 
         match self.current_state {
             State::None => {
@@ -141,20 +140,22 @@ impl AddressClaimStateMachine {
                     >= Duration::from_millis(250) + self.random_claim_delay
                 {
                     // After the wait, check if our address has been claimed.
-                    let other = network_manager.handle_by_address(self.preferred_address);
+                    let other: Option<ControlFunctionHandle> = network_manager.handle_by_address(self.preferred_address);
 
                     match other {
-                        Some(name) => {
+                        Some(handle) => {
+                            let other_name = handle.borrow().name();
+
                             // Check if we are arbitrary address capable.
                             if control_function.name().arbitrary_address_capable() {
                                 // We will move to another address if whoever is in our spot has a lower NAME.
-                                if name < control_function.name() {
+                                if other_name < control_function.name() {
                                     self.current_state = State::SendArbitraryAddressClaim;
                                 } else {
                                     self.current_state = State::SendPreferredAddressClaim;
                                 }
                             } else {
-                                if name > control_function.name() {
+                                if other_name > control_function.name() {
                                     // Our address is not free, we cannot be at an arbitrary address, and address is contendable.
                                     self.current_state = State::ContendForPreferredAddress;
                                 } else {
@@ -171,7 +172,7 @@ impl AddressClaimStateMachine {
                 }
             }
             State::SendPreferredAddressClaim => {
-                self.send_address_claim(network_manager, control_function.name(), self.preferred_address);
+                self.send_address_claim(network_manager, control_function.handle(), self.preferred_address);
                 log::debug!(
                     "[AC]: Internal control function {} has claimed address {}",
                     control_function.name(),
@@ -197,7 +198,7 @@ impl AddressClaimStateMachine {
                 }
             }
             State::SendReclaimAddressOnRequest => {
-                self.send_address_claim(network_manager, control_function.name(), self.preferred_address);
+                self.send_address_claim(network_manager, handle, self.preferred_address);
                 self.current_state = State::AddressClaimingComplete;
             }
             State::ContendForPreferredAddress => {
@@ -206,14 +207,16 @@ impl AddressClaimStateMachine {
             State::UnableToClaim => {}
             State::AddressClaimingComplete => {}
         }
-
-        // Update our claimed address in a cache variable.
-        // self.claimed_address = network_manager
-        //     .internal_address(self.name())
-        //     .unwrap_or_default()
     }
 
-    pub fn send_address_claim(
+
+    fn name(&self) -> Name {
+        self.handle.upgrade().map(|handle| {
+            handle.borrow().name()
+        }).unwrap_or_default()
+    }
+
+    fn send_address_claim(
         &mut self,
         network_manager: &mut CanNetworkManager,
         handle: ControlFunctionHandle,
